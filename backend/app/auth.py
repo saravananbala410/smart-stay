@@ -1,11 +1,11 @@
 """
-auth.py - JWT Authentication + Password Hashing
+auth.py - JWT Authentication + Pure Bcrypt Password Hashing (Bypassing Passlib Bug)
 """
 
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt  # 👈 Pure bcrypt direct-ah dependency-ah use panrom
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -20,32 +20,24 @@ SECRET_KEY  = os.getenv("SECRET_KEY", "your-super-secret-key-change-in-productio
 ALGORITHM   = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
-# 🛠️ FIXED: Standard CryptContext configuration using safe passlib default mappings
-pwd_context = CryptContext(
-    schemes=["bcrypt"], 
-    deprecated="auto"
-)
-
-# Forcefully handling the long password constraint check parameters programmatically 
-# to ensure it boots up flawlessly on Python 3.12+ environments.
-try:
-    pwd_context.backend()._handle_long_passwords = True
-except Exception:
-    pass
-
 bearer_scheme = HTTPBearer()
 
 # ─────────────────────────────────────────
-# Password helpers
+# Password helpers (Pure Bcrypt Implementation)
 # ─────────────────────────────────────────
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    # String-ah byte-ah maத்தி, direct-ah salt sethu hash panrom
+    password_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode('utf-8')  # Database-la store panna string-ah tharom
 
 def verify_password(plain: str, hashed: str) -> bool:
     try:
-        return pwd_context.verify(plain, hashed)
-    except ValueError:
-        # Fallback mechanism if bcrypt 72 byte initialization throws internal verification value error
+        plain_bytes = plain.encode('utf-8')
+        hashed_bytes = hashed.encode('utf-8')
+        return bcrypt.checkpw(plain_bytes, hashed_bytes)
+    except Exception:
         return False
 
 # ─────────────────────────────────────────
@@ -66,7 +58,6 @@ def decode_token(token: str):
 
 # ─────────────────────────────────────────
 # Dependency: Get current logged-in hostel admin
-# Use this in ALL protected routes
 # ─────────────────────────────────────────
 def get_current_hostel(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
