@@ -20,7 +20,13 @@ SECRET_KEY  = os.getenv("SECRET_KEY", "your-super-secret-key-change-in-productio
 ALGORITHM   = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# 🛠️ FIXED: Added handle_long_passwords flag to bypass bcrypt 72-byte check bug on Python 3.12+
+pwd_context = CryptContext(
+    schemes=["bcrypt"], 
+    deprecated="auto",
+    bcrypt__handle_long_passwords=True
+)
+
 bearer_scheme = HTTPBearer()
 
 # ─────────────────────────────────────────
