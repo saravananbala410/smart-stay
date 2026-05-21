@@ -42,10 +42,20 @@ export default function Payments() {
     const command = transcript.toLowerCase()
 
     // Triggers lookup if keywords are detected (e.g. "Vijay pending" or "Karthik balance")
-    if (command.includes('pending') || command.includes('balance') || command.includes('bakki')) {
-      const matchedRecord = payments.find(p => 
-        command.includes(p.tenant_name.toLowerCase())
-      )
+    if (command.includes('pending') || command.includes('balance') || command.includes('bakki') || command.includes('amount')) {
+      
+      // 🔥 FIX: Ultimate Flexible Name Matching Logic (Solves 'Karthick' vs 'Karthik' mismatch)
+      const matchedRecord = payments.find(p => {
+        const dbName = p.tenant_name.toLowerCase();
+        
+        // 1. Straight match or substring match
+        if (command.includes(dbName) || dbName.includes(command.split(' ')[0])) return true;
+        
+        // 2. Cross-check normalized name tags (Removes 'ck' from end for absolute pronunciation match)
+        const normalizedDbName = dbName.replace(/ck$/, 'k');
+        const normalizedCommand = command.replace(/ck$/, 'k');
+        return normalizedCommand.includes(normalizedDbName);
+      })
 
       if (matchedRecord) {
         const toastMessage = matchedRecord.balance === 0 
@@ -223,7 +233,7 @@ export default function Payments() {
 
   return (
     <div className="space-y-5">
-      {/* 🔥 NEW UI COMPONENT: FREE DYNAMIC VOICE CONTROLLER SECTION FOR ADMIN */}
+      {/* 🔥 FREE DYNAMIC VOICE CONTROLLER SECTION FOR ADMIN */}
       {browserSupportsSpeechRecognition && (
         <div className="bg-indigo-50/80 border border-indigo-100 rounded-xl px-4 py-3 flex items-center justify-between gap-3 text-sm">
           <div className="flex items-center gap-2 text-indigo-900">
@@ -424,7 +434,7 @@ export default function Payments() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Total Bill (₹)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount (₹)</label>
                 <input type="number" required placeholder="3000" value={elecForm.total_amount}
                   onChange={e => setElecForm({...elecForm, total_amount: e.target.value})}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
@@ -436,7 +446,7 @@ export default function Payments() {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
               </div>
               <p className="text-xs text-gray-500">Amount will be split equally among active tenants in this room</p>
-              <button type="submit" className="w-full bg-yellow-500 text-white py-2.5 rounded-lg font-medium hover:bg-yellow-600">
+              <button type="submit" className="w-full bg-yellow-50 text-white py-2.5 rounded-lg font-medium hover:bg-yellow-600">
                 Set Electricity Bill
               </button>
             </form>
@@ -448,38 +458,34 @@ export default function Payments() {
       {showAddCharge && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
-            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
-                <div className="flex items-center justify-between mb-5">
-                  <h2 className="text-lg font-semibold flex items-center gap-2"><Droplets size={16} className="text-blue-500"/>Add Charge</h2>
-                  <button onClick={() => setShowAddCharge(false)}><X size={20} className="text-gray-400" /></button>
-                </div>
-                <form onSubmit={submitAddCharge} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Charge Name</label>
-                    <input type="text" required placeholder="e.g. Water, Internet, Maintenance" value={chargeForm.charge_name}
-                      onChange={e => setChargeForm({...chargeForm, charge_name: e.target.value})}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount (₹)</label>
-                    <input type="number" required placeholder="1000" value={chargeForm.total_amount}
-                      onChange={e => setChargeForm({...chargeForm, total_amount: e.target.value})}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
-                    <input type="month" required value={chargeForm.month_year}
-                      onChange={e => setChargeForm({...chargeForm, month_year: e.target.value})}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-                  </div>
-                  <p className="text-xs text-gray-500">Amount will be split equally among ALL active tenants in the hostel</p>
-                  <button type="submit" className="w-full bg-blue-500 text-white py-2.5 rounded-lg font-medium hover:bg-blue-600">
-                    Add Charge
-                  </button>
-                </form>
-              </div>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold flex items-center gap-2"><Droplets size={16} className="text-blue-500"/>Add Charge</h2>
+              <button onClick={() => setShowAddCharge(false)}><X size={20} className="text-gray-400" /></button>
             </div>
+            <form onSubmit={submitAddCharge} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Charge Name</label>
+                <input type="text" required placeholder="e.g. Water, Internet, Maintenance" value={chargeForm.charge_name}
+                  onChange={e => setChargeForm({...chargeForm, charge_name: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount (₹)</label>
+                <input type="number" required placeholder="1000" value={chargeForm.total_amount}
+                  onChange={e => setChargeForm({...chargeForm, total_amount: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                <input type="month" required value={chargeForm.month_year}
+                  onChange={e => setChargeForm({...chargeForm, month_year: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              </div>
+              <p className="text-xs text-gray-500">Amount will be split equally among ALL active tenants in the hostel</p>
+              <button type="submit" className="w-full bg-blue-500 text-white py-2.5 rounded-lg font-medium hover:bg-blue-600">
+                Add Charge
+              </button>
+            </form>
           </div>
         </div>
       )}
