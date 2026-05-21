@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, X, Zap, Droplets } from 'lucide-react'
+import { Plus, X, Zap, Droplets, FileText } from 'lucide-react'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
 
@@ -74,6 +74,153 @@ export default function Payments() {
     } catch (err) { toast.error(err.response?.data?.detail || 'Failed') }
   }
 
+  // ─────────────────────────────────────────
+  // 🔥 DYNAMIC RECEIPT GENERATOR WITH CLEAR PENDING DUES AND PREVIOUS MONTHS ANALYSIS
+  // ─────────────────────────────────────────
+  const handleDownloadReceipt = (p) => {
+    const savedHostelName = localStorage.getItem('hostel_name') || 'Our Premium Hostel';
+    
+    // Dynamic Logic: Calculation profile tags for pending indicators
+    const currentMonthDate = new Date(month + "-01");
+    currentMonthDate.setMonth(currentMonthDate.getMonth() - 1);
+    const previousMonthString = currentMonthDate.toISOString().slice(0, 7);
+
+    const printWindow = window.open('', '_blank');
+    const htmlContent = `
+      <html>
+        <head>
+          <title>Receipt_${p.tenant_name}_${month}</title>
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; color: #333; line-height: 1.6; position: relative; }
+            .receipt-card { border: 2px solid #e2e8f0; border-radius: 16px; padding: 30px; max-width: 600px; margin: 0 auto; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); position: relative; overflow: hidden; }
+            .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-25deg); font-size: 40px; font-weight: bold; color: rgba(79, 70, 229, 0.04); white-space: nowrap; pointer-events: none; text-transform: uppercase; letter-spacing: 2px; }
+            .header { text-align: center; border-bottom: 2px dashed #e2e8f0; padding-bottom: 20px; margin-bottom: 20px; }
+            .header h1 { margin: 0; color: #1e293b; font-size: 28px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+            .header p { margin: 5px 0 0 0; color: #4f46e5; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+            
+            .meta-info { display: flex; justify-content: space-between; margin: 20px 0; background: #f8fafc; padding: 12px 16px; border-radius: 8px; font-size: 14px; position: relative; z-index: 10; }
+            
+            /* 🔥 NEW CONCEPT STYLING: PENDING/DUE NOTICE STRIP FOR TENANTS */
+            .status-strip { padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; font-weight: 500; display: flex; justify-content: space-between; align-items: center; position: relative; z-index: 10; }
+            .status-clear { background: #f0fff4; border: 1px solid #c6f6d5; color: #22543d; }
+            .status-pending { background: #fff5f5; border: 1px solid #fed7d7; color: #742a2a; }
+            
+            .table-wrapper { position: relative; z-index: 10; }
+            .footer { text-align: center; margin-top: 35px; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 15px; position: relative; z-index: 10; }
+            .badge { display: inline-block; padding: 4px 12px; border-radius: 9999px; font-weight: 600; font-size: 12px; text-transform: uppercase; }
+            .badge-paid { background: #dcfce7; color: #15803d; }
+            .badge-due { background: #fee2e2; color: #b91c1c; }
+            @media print { body { padding: 0; } .receipt-card { border: none; box-shadow: none; } }
+          </style>
+        </head>
+        <body>
+          <div class="receipt-card">
+            <div class="watermark">Smart-Stay System</div>
+            
+            <div class="header">
+              <h1>${savedHostelName}</h1>
+              <p>Smart-Stay PG Management System — Receipt</p>
+            </div>
+            
+            <div class="meta-info">
+              <div>
+                <strong>Tenant Name:</strong> ${p.tenant_name}<br>
+                <strong>Current Billing Period:</strong> ${month}
+              </div>
+              <div style="text-align: right;">
+                <strong>Receipt Date:</strong> ${p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN')}<br>
+                <span class="badge ${p.balance === 0 ? 'badge-paid' : 'badge-due'}">
+                  ${p.balance === 0 ? '✓ PAID' : '⚠ BALANCE DUE'}
+                </span>
+              </div>
+            </div>
+
+            <div class="status-strip ${p.balance === 0 ? 'status-clear' : 'status-pending'}">
+              <span>
+                ${p.balance === 0 
+                  ? `🎉 <strong>Great!</strong> Total dues for ${month} are fully cleared.` 
+                  : `📢 <strong>Pending Payment Notice:</strong> Outstanding due for <strong>${month}</strong> is active.`
+                }
+              </span>
+              <span style="font-size: 16px; font-weight: bold;">
+                ${p.balance === 0 ? '₹0 Pending' : `₹${p.balance} Pending`}
+              </span>
+            </div>
+
+            <div class="table-wrapper">
+              <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr style="border-bottom: 2px solid #edf2f7;">
+                    <th style="padding: 10px; text-align: left; color: #64748b; font-size: 13px;">Charge Breakdown Description</th>
+                    <th style="padding: 10px; text-align: right; color: #64748b; font-size: 13px;">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style="padding: 12px 10px; border-bottom: 1px solid #edf2f7; font-size: 14px;">
+                      <strong>Base Room Rent</strong> <span style="font-size: 12px; color: #64748b;">(Cycle: ${month})</span>
+                    </td>
+                    <td style="padding: 12px 10px; text-align: right; border-bottom: 1px solid #edf2f7; font-size: 14px;">₹${p.due_amount}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 12px 10px; border-bottom: 1px solid #edf2f7; font-size: 14px;">
+                      <strong>Electricity Utility Charges</strong> <span style="font-size: 12px; color: #64748b;">(Divided equally)</span>
+                    </td>
+                    <td style="padding: 12px 10px; text-align: right; border-bottom: 1px solid #edf2f7; font-size: 14px;">₹${p.electricity_amount || 0}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 12px 10px; border-bottom: 1px solid #edf2f7; font-size: 14px;">
+                      <strong>Additional Services Bill</strong> <span style="font-size: 12px; color: #64748b;">(Amenities/Maintenance)</span>
+                    </td>
+                    <td style="padding: 12px 10px; text-align: right; border-bottom: 1px solid #edf2f7; font-size: 14px;">₹${p.additional_amount || 0}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 12px 10px; border-bottom: 1px solid #edf2f7; font-size: 14px; color: #c05621;">
+                      <strong>Previous Month Arrears Balance</strong> <span style="font-size: 12px; color: #7b341e;">(Pending from ${previousMonthString} or older)</span>
+                    </td>
+                    <td style="padding: 12px 10px; text-align: right; border-bottom: 1px solid #edf2f7; font-size: 14px; color: #c05621; font-weight: 500;">
+                      ₹${p.arrears || 0}
+                    </td>
+                  </tr>
+                  <tr style="background: #f7fafc; font-weight: bold; border-top: 2px solid #edf2f7;">
+                    <td style="padding: 12px 10px; font-size: 14px;">Gross Cumulative Net Due</td>
+                    <td style="padding: 12px 10px; text-align: right; font-size: 14px;">₹${p.total_due}</td>
+                  </tr>
+                  <tr style="color: #2f855a; font-weight: bold; background: #f0fff4;">
+                    <td style="padding: 12px 10px; font-size: 14px;">Total Amount Received From Tenant</td>
+                    <td style="padding: 12px 10px; text-align: right; font-size: 14px;">₹${p.amount_paid}</td>
+                  </tr>
+                  <tr style="border-bottom: 2px solid #edf2f7; font-weight: bold; background: ${p.balance === 0 ? '#f7fafc' : '#fff5f5'}; color: ${p.balance === 0 ? '#2d3748' : '#e53e3e'}">
+                    <td style="padding: 12px 10px; font-size: 14px;">
+                      ${p.balance === 0 ? 'Status' : `Net Pending Bill Amount (${month})`}
+                    </td>
+                    <td style="padding: 12px 10px; text-align: right; font-size: 14px;">
+                      ${p.balance === 0 ? 'FULLY PAID' : `₹${p.balance}`}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style="margin-top: 20px; font-size: 13px; color: #4a5568; position: relative; z-index: 10;">
+              <strong>Transaction reference ID:</strong> ${p.transaction_id || 'N/A (Cash/Direct Transfer)'}
+            </div>
+
+            <div class="footer">
+              <p>Thank you for staying with us! 🏠</p>
+              <p style="font-size: 10px;">Powered by Smart-Stay PG Management Engine</p>
+            </div>
+          </div>
+          <script>
+            window.onload = function() { window.print(); window.close(); }
+          </script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -140,7 +287,7 @@ export default function Payments() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  {['Tenant', 'Rent', 'Electricity', 'Other', 'Arrears', 'Total Due', 'Paid', 'Balance', 'Date'].map(h => (
+                  {['Tenant', 'Rent', 'Electricity', 'Other', 'Arrears', 'Total Due', 'Paid', 'Balance', 'Date', 'Action'].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-gray-500 font-medium text-xs">{h}</th>
                   ))}
                 </tr>
@@ -163,6 +310,15 @@ export default function Payments() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-400 text-xs">{p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-IN') : '—'}</td>
+                      <td className="px-4 py-3">
+                        <button 
+                          onClick={() => handleDownloadReceipt(p)}
+                          className="flex items-center gap-1 bg-gray-100 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 px-2 py-1 rounded transition text-xs font-medium"
+                          title="Print Receipt"
+                        >
+                          <FileText size={12} /> Receipt
+                        </button>
+                      </td>
                     </tr>
                   )
                 })}
