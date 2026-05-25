@@ -1,6 +1,6 @@
 # 🏠 Smart-Stay — PG / Hostel Management System
 
-Mobile + Web la perfect ah run agum full-stack app!
+full-stack Web app for Mobile + Computer
 
 ---
 
