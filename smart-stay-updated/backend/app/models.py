@@ -39,6 +39,7 @@ class Hostel(Base):
     transactions      = relationship("PaymentTransaction", back_populates="hostel", cascade="all, delete")
     rent_configs      = relationship("RentConfiguration", back_populates="hostel", cascade="all, delete")
     notices           = relationship("Notice", back_populates="hostel", cascade="all, delete")
+    feedbacks         = relationship("Feedback", back_populates="hostel", cascade="all, delete")
     electricity_bills = relationship("ElectricityBill", back_populates="hostel", cascade="all, delete")
     additional_charges= relationship("AdditionalCharge", back_populates="hostel", cascade="all, delete")
 
@@ -126,6 +127,16 @@ class Notice(Base):
     content    = Column(Text, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     hostel = relationship("Hostel", back_populates="notices")
+
+class Feedback(Base):
+    __tablename__ = "feedback"
+    feedback_id = Column(Integer, primary_key=True, index=True)
+    hostel_id   = Column(Integer, ForeignKey("hostels.hostel_id"), nullable=False)
+    name        = Column(String(100), nullable=False)
+    message     = Column(Text, nullable=False)
+    device      = Column(String(255), nullable=True)
+    created_at  = Column(DateTime, server_default=func.now())
+    hostel = relationship("Hostel", back_populates="feedbacks")
 
 class ElectricityBill(Base):
     __tablename__ = "electricity_bills"

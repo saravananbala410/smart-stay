@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 from app.database import engine, Base
-from app.routers import hostels, rooms, tenants, payments, dashboard, reports, notices
+from app.routers import hostels, rooms, tenants, payments, dashboard, reports, notices, feedback
 from app.routers.electricity import router as electricity_router
 from app.routers.invoices    import router as invoices_router
 
@@ -41,6 +41,7 @@ app.include_router(tenants.router,      prefix="/api/tenants",      tags=["Tenan
 app.include_router(payments.router,     prefix="/api/payments",     tags=["Payments"])
 app.include_router(reports.router,      prefix="/api/reports",      tags=["Reports"])
 app.include_router(notices.router,      prefix="/api/notices",      tags=["Notices"])
+app.include_router(feedback.router,     prefix="/api/feedback",     tags=["Feedback"])
 app.include_router(electricity_router,  prefix="/api/charges",      tags=["Charges"])
 app.include_router(invoices_router,     prefix="/api/invoice",      tags=["Invoice"])
 

@@ -1,6 +1,7 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { LayoutDashboard, Building2, Users, Wallet, BarChart3, LogOut, Menu, X, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
+import FeedbackWidget from './FeedbackWidget'
 
 const NAV = [
   { to: '/',         icon: LayoutDashboard, label: 'Dashboard',  color: 'text-blue-500' },
@@ -117,6 +118,7 @@ export default function Layout() {
         <main className="flex-1 overflow-y-auto px-4 py-5 md:px-7 md:py-6">
           <Outlet />
         </main>
+        <FeedbackWidget />
       </div>
     </div>
   )
