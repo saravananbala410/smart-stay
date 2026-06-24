@@ -1,8 +1,4 @@
-
-
-
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "framework": "vite"
+  "buildCommand": "npx --yes vite build",
+  "outputDirectory": "dist"
 }
