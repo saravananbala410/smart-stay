@@ -18,9 +18,9 @@ def list_feedback(
     db: Session = Depends(get_db),
     current_hostel: models.Hostel = Depends(get_current_hostel)
 ):
-    return db.query(models.Feedback).filter(
-        models.Feedback.hostel_id == current_hostel.hostel_id
-    ).order_by(models.Feedback.created_at.desc()).limit(50).all()
+    return db.query(models.Feedback).order_by(
+        models.Feedback.created_at.desc()
+    ).limit(50).all()
 
 
 @router.post("/", response_model=schemas.FeedbackResponse, status_code=201)
