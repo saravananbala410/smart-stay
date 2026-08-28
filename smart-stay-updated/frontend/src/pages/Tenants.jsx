@@ -1,27 +1,31 @@
 import { useEffect, useState } from 'react'
 import { Plus, Search, Users, UserX, X, Camera } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import api from '../api/axios'
+import api, { apiAssetUrl } from '../api/axios'
 import toast from 'react-hot-toast'
-
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 function resolvePhoto(url) {
   if (!url) return null
   if (url.startsWith('http')) return url
   let c = url.replace(/^\//, '')
   if (!c.startsWith('uploads/')) c = `uploads/${c}`
-  return `${BASE_URL}/${c}`
+  return apiAssetUrl(c)
+}
+
+const avatarSizes = {
+  10: 'w-10 h-10',
+  12: 'w-12 h-12',
+  16: 'w-16 h-16',
 }
 
 function Avatar({ name, photoUrl, size = 10 }) {
   const [err, setErr] = useState(false)
   const src = resolvePhoto(photoUrl)
-  const cls = `w-${size} h-${size} rounded-xl object-cover flex-shrink-0`
+  const cls = `${avatarSizes[size] || avatarSizes[10]} rounded-xl object-cover flex-shrink-0`
   if (src && !err)
     return <img src={src} alt={name} className={cls} onError={() => setErr(true)}/>
   return (
-    <div className={`w-${size} h-${size} rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 font-bold text-sm flex-shrink-0`}>
+    <div className={`${avatarSizes[size] || avatarSizes[10]} rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center text-blue-700 font-bold text-sm flex-shrink-0`}>
       {name.charAt(0).toUpperCase()}
     </div>
   )
@@ -75,24 +79,24 @@ export default function Tenants() {
   }
 
   return (
-    <div className="space-y-5 max-w-3xl">
+    <div className="space-y-5 max-w-3xl mx-auto">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Tenants</h1>
           <p className="text-slate-400 text-sm mt-0.5">{tenants.length} {tab.toLowerCase()} tenant{tenants.length !== 1 ? 's' : ''}</p>
         </div>
-        <button onClick={() => setShowAdd(true)} className="btn-primary btn-sm">
+        <button onClick={() => setShowAdd(true)} className="btn-primary btn-sm w-full sm:w-auto">
           <Plus size={13}/> Add Tenant
         </button>
       </div>
 
       {/* Tab toggle */}
-      <div className="flex gap-0 bg-slate-100 p-1 rounded-xl w-fit">
+      <div className="flex gap-0 bg-slate-100 p-1 rounded-xl w-full sm:w-fit">
         {[['Active', Users, 'text-emerald-600'], ['Vacated', UserX, 'text-slate-400']].map(([t, Icon, ic]) => (
           <button key={t} onClick={() => { setTab(t); setSearch('') }}
-            className={`flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+            className={`flex flex-1 sm:flex-none items-center justify-center gap-1.5 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
               tab === t ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'
             }`}>
             <Icon size={13} className={tab === t ? ic : ''}/>
@@ -122,7 +126,7 @@ export default function Tenants() {
           <div className="divide-y divide-slate-50">
             {tenants.map(t => (
               <div key={t.tenant_id} onClick={() => navigate(`/tenants/${t.tenant_id}`)}
-                className="flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50/80 cursor-pointer transition-colors">
+                className="flex items-start sm:items-center gap-3 sm:gap-4 px-4 py-3.5 sm:px-5 hover:bg-slate-50/80 cursor-pointer transition-colors">
                 <Avatar name={t.name} photoUrl={t.photo_url} size={10}/>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-slate-800 text-sm">{t.name}</p>
@@ -132,7 +136,7 @@ export default function Tenants() {
                     {t.vacated_date ? ` · Vacated ${new Date(t.vacated_date).toLocaleDateString('en-IN')}` : ''}
                   </p>
                 </div>
-                <span className={`badge flex-shrink-0 ${t.status === 'Active' ? 'badge-green' : 'badge-slate'}`}>
+                <span className={`badge flex-shrink-0 mt-0.5 sm:mt-0 ${t.status === 'Active' ? 'badge-green' : 'badge-slate'}`}>
                   {t.status}
                 </span>
               </div>
@@ -145,11 +149,11 @@ export default function Tenants() {
       {showAdd && (
         <div className="modal-overlay">
           <div className="modal-box max-w-lg p-0">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <div className="flex items-center justify-between px-4 py-4 sm:px-6 border-b border-slate-100">
               <h2 className="font-bold text-slate-900">Add New Tenant</h2>
               <button onClick={() => setShowAdd(false)} className="btn-icon"><X size={18}/></button>
             </div>
-            <form onSubmit={addTenant} className="px-6 py-5 space-y-4">
+            <form onSubmit={addTenant} className="px-4 py-5 sm:px-6 space-y-4">
               <div>
                 <label className="label">Room</label>
                 <select required value={form.room_id} onChange={e => setForm({...form, room_id: e.target.value})} className="input">
@@ -161,7 +165,7 @@ export default function Tenants() {
                   ))}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
                   { label: 'Full Name',      key: 'name',              ph: 'Karthik R',    type: 'text'   },
                   { label: 'Phone',          key: 'phone',             ph: '9876543210',   type: 'tel'    },
@@ -180,7 +184,7 @@ export default function Tenants() {
                 <input type="date" required value={form.joining_date}
                   onChange={e => setForm({...form, joining_date: e.target.value})} className="input"/>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="label flex items-center gap-1"><Camera size={11}/> Photo</label>
                   <input type="file" accept="image/*" onChange={e => setPhoto(e.target.files[0])}

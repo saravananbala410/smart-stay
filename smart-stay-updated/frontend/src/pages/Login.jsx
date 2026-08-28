@@ -16,7 +16,7 @@ export default function Login() {
       localStorage.setItem('token', data.access_token)
       localStorage.setItem('hostel_id', data.hostel_id)
       localStorage.setItem('hostel_name', data.hostel_name)
-      toast.success('Welcome back! 🏠')
+      toast.success('Welcome back!')
       navigate('/')
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Login failed')
@@ -24,8 +24,8 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 sm:p-8">
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">🏠</div>
           <h1 className="text-2xl font-bold text-gray-800">Smart-Stay</h1>

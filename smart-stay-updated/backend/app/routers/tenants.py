@@ -5,18 +5,20 @@ FIX #4: Photo URL fully resolved — handles both old paths and new paths
 FIX #6: Welcome SMS on registration
 """
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import date
-import os, uuid
+import os, uuid, logging
 
 from app.database import get_db
 from app import models, schemas
 from app.auth import get_current_hostel
+from app.billing import monthly_rent, payment_snapshots, tenant_account_totals
 from app.utils.file_upload import upload_to_cloudinary
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 UPLOAD_DIR = "uploads"
 BASE_URL   = os.getenv("BASE_URL", "http://localhost:8000")
@@ -76,13 +78,14 @@ def _send_welcome_sms(tenant, hostel_name: str):
                 phone = "+91" + phone
             client.messages.create(body=message, from_=from_, to=phone)
         except Exception as e:
-            print(f"[SMS] Failed: {e}")
+            logger.warning("Welcome SMS failed: %s", type(e).__name__)
     else:
-        print(f"[SMS stub] To {tenant.phone}: {message}")
+        logger.info("Welcome SMS skipped; provider not configured (phone suffix: %s)", tenant.phone[-4:])
 
 
 @router.post("/", status_code=201)
 async def create_tenant(
+    background_tasks: BackgroundTasks,
     room_id          : int            = Form(...),
     name             : str            = Form(...),
     phone            : str            = Form(...),
@@ -95,6 +98,23 @@ async def create_tenant(
     current_hostel: models.Hostel = Depends(get_current_hostel)
 ):
     hid = current_hostel.hostel_id
+
+    clean_name = name.strip()
+    phone_digits = "".join(char for char in phone if char.isdigit())
+    aadhaar_digits = "".join(char for char in aadhaar_number if char.isdigit())
+    if len(clean_name) < 2:
+        raise HTTPException(status_code=422, detail="Tenant name is required")
+    if not 10 <= len(phone_digits) <= 15:
+        raise HTTPException(status_code=422, detail="Enter a valid 10 to 15 digit phone number")
+    if len(aadhaar_digits) != 12:
+        raise HTTPException(status_code=422, detail="Aadhaar number must contain exactly 12 digits")
+    duplicate = db.query(models.Tenant).filter(
+        models.Tenant.hostel_id == hid,
+        models.Tenant.aadhaar_number == aadhaar_digits,
+        models.Tenant.status == "Active",
+    ).first()
+    if duplicate:
+        raise HTTPException(status_code=409, detail="An active tenant with this Aadhaar number already exists")
 
     room = db.query(models.Room).filter(
         models.Room.room_id   == room_id,
@@ -133,8 +153,8 @@ async def create_tenant(
             aadhaar_pdf_url = save_file_locally(pdf_bytes, aadhaar_pdf.filename or "doc.pdf", "aadhaar")
 
     tenant = models.Tenant(
-        hostel_id=hid, room_id=room_id, name=name, phone=phone,
-        aadhaar_number=aadhaar_number, emergency_contact=emergency_contact,
+        hostel_id=hid, room_id=room_id, name=clean_name, phone=phone_digits,
+        aadhaar_number=aadhaar_digits, emergency_contact=emergency_contact,
         photo_url=photo_url, aadhaar_pdf_url=aadhaar_pdf_url,
         joining_date=joining_date, status="Active"
     )
@@ -142,7 +162,7 @@ async def create_tenant(
     room.occupied_beds += 1
     db.commit()
     db.refresh(tenant)
-    _send_welcome_sms(tenant, current_hostel.name)
+    background_tasks.add_task(_send_welcome_sms, tenant, current_hostel.name)
     return {"message": "Tenant added successfully", "tenant_id": tenant.tenant_id}
 
 
@@ -258,40 +278,36 @@ def get_tenant_payments(
         raise HTTPException(status_code=404, detail="Tenant not found")
 
     payments = db.query(models.Payment).filter(
-        models.Payment.tenant_id == tenant_id
+        models.Payment.tenant_id == tenant_id,
+        models.Payment.hostel_id == hid
     ).order_by(models.Payment.month_year.desc()).all()
+    snapshots = payment_snapshots(db, payments)
 
     today = date.today()
-    if t.room:
-        rc = db.query(models.RentConfiguration).filter(
-            models.RentConfiguration.hostel_id    == hid,
-            models.RentConfiguration.sharing_type == t.room.sharing_type
-        ).order_by(models.RentConfiguration.effective_date.desc()).first()
-        monthly_rent = rc.rent_amount if rc else t.room.base_rent
-    else:
-        monthly_rent = 0
+    current_monthly_rent = monthly_rent(t, today.strftime("%Y-%m"), db, hid)
 
-    months_active       = max(0, (today.year - t.joining_date.year) * 12 + (today.month - t.joining_date.month) + 1)
-    cumulative_rent_due = round(monthly_rent * months_active, 2)
-    total_paid          = round(sum(p.amount_paid for p in payments), 2)
-    outstanding_balance = round(max(0, cumulative_rent_due - total_paid), 2)
-    total_due           = round(sum(p.due_amount + p.electricity_amount + p.additional_amount for p in payments), 2)
+    active_until = t.vacated_date or today
+    months_active       = max(0, (active_until.year - t.joining_date.year) * 12 + (active_until.month - t.joining_date.month) + 1)
+    cumulative_rent_due = round(sum(p.due_amount for p in payments), 2)
+    totals = tenant_account_totals(db, hid, tenant_id)
 
     transactions = db.query(models.PaymentTransaction).filter(
-        models.PaymentTransaction.tenant_id == tenant_id
+        models.PaymentTransaction.tenant_id == tenant_id,
+        models.PaymentTransaction.hostel_id == hid
     ).order_by(models.PaymentTransaction.paid_at.desc()).all()
 
     return {
         "tenant_name"         : t.name,
         "joining_date"        : t.joining_date,
         "months_active"       : months_active,
-        "monthly_rent"        : monthly_rent,
+        "monthly_rent"        : current_monthly_rent,
         "cumulative_rent_due" : cumulative_rent_due,
-        "total_paid"          : total_paid,
-        "total_due"           : total_due,
-        "outstanding_balance" : outstanding_balance,
-        "ledger_summary"      : f"Paid: ₹{total_paid:,.0f} | Outstanding Balance: ₹{outstanding_balance:,.0f}",
-        "total_pending"       : outstanding_balance,
+        "total_paid"          : totals["total_paid"],
+        "total_due"           : totals["total_billed"],
+        "outstanding_balance" : totals["outstanding"],
+        "credit_balance"      : totals["credit"],
+        "ledger_summary"      : f"Billed: ₹{totals['total_billed']:,.0f} | Paid: ₹{totals['total_paid']:,.0f} | Remaining: ₹{totals['outstanding']:,.0f}",
+        "total_pending"       : totals["outstanding"],
         "payments": [
             {
                 "payment_id"        : p.payment_id,
@@ -299,10 +315,14 @@ def get_tenant_payments(
                 "due_amount"        : p.due_amount,
                 "electricity_amount": p.electricity_amount,
                 "additional_amount" : p.additional_amount,
-                "total_due"         : round(p.due_amount + p.electricity_amount + p.additional_amount, 2),
-                "arrears"           : p.arrears,
+                "total_due"         : snapshots[p.payment_id]["current_charges"],
+                "arrears"           : snapshots[p.payment_id]["opening_balance"],
+                "opening_credit"    : snapshots[p.payment_id]["opening_credit"],
+                "payable"           : snapshots[p.payment_id]["payable"],
                 "amount_paid"       : p.amount_paid,
-                "balance"           : round(max(0, (p.due_amount + p.electricity_amount + p.additional_amount) - p.amount_paid + p.arrears), 2),
+                "balance"           : snapshots[p.payment_id]["balance"],
+                "credit"            : snapshots[p.payment_id]["credit"],
+                "payment_status"    : snapshots[p.payment_id]["status"],
                 "transaction_id"    : p.transaction_id,
                 "payment_date"      : p.payment_date,
                 "is_advance"        : p.is_advance
@@ -316,6 +336,8 @@ def get_tenant_payments(
                 "month_year"    : tx.month_year,
                 "transaction_id": tx.transaction_id,
                 "note"          : tx.note,
+                "status"        : tx.status,
+                "source"        : tx.source,
                 "paid_at"       : tx.paid_at
             }
             for tx in transactions

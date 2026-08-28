@@ -33,8 +33,8 @@ export function Register() {
   )
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 sm:p-8">
         <div className="text-center mb-6">
           <div className="text-4xl mb-2">🏠</div>
           <h1 className="text-2xl font-bold text-gray-800">Register Your Hostel</h1>
@@ -73,8 +73,8 @@ export function ForgotPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 sm:p-8">
         <h1 className="text-2xl font-bold text-gray-800 mb-2">Forgot Password</h1>
         {sent ? (
           <div className="text-center py-8">
@@ -118,8 +118,8 @@ export function ResetPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 sm:p-8">
         <h1 className="text-2xl font-bold text-gray-800 mb-4">Set New Password</h1>
         {done ? (
           <p className="text-green-600 text-center py-4">✅ Password reset! Redirecting to login...</p>

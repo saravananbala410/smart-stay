@@ -4,12 +4,13 @@ Uses Gmail SMTP (free)
 """
 
 import smtplib
-import os
+import os, logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 SMTP_EMAIL    = os.getenv("SMTP_EMAIL", "your@gmail.com")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "your_app_password")
@@ -41,7 +42,7 @@ def send_reset_email(to_email: str, reset_token: str):
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(SMTP_EMAIL, SMTP_PASSWORD)
             server.sendmail(SMTP_EMAIL, to_email, msg.as_string())
-        print(f"✅ Reset email sent to {to_email}")
+        logger.info("Password reset email sent")
     except Exception as e:
-        print(f"❌ Email send failed: {e}")
+        logger.warning("Password reset email failed: %s", type(e).__name__)
         # Don't raise — email failure shouldn't break the API

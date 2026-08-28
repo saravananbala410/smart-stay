@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Phone, Calendar, Home, Receipt, Clock, RefreshCw, UserX, ShieldCheck, CreditCard, AlertCircle, CheckCircle2 } from 'lucide-react'
-import api from '../api/axios'
+import api, { API_ORIGIN, apiAssetUrl } from '../api/axios'
 import toast from 'react-hot-toast'
-
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 function fmt(n) { return Number(n || 0).toLocaleString('en-IN') }
 
@@ -13,7 +11,7 @@ function resolvePhoto(url) {
   if (url.startsWith('http')) return url
   let c = url.replace(/^\//, '')
   if (!c.startsWith('uploads/')) c = `uploads/${c}`
-  return `${BASE_URL}/${c}`
+  return apiAssetUrl(c)
 }
 
 export default function TenantProfile() {
@@ -42,8 +40,8 @@ export default function TenantProfile() {
   }
   const openInvoice = async (monthYear) => {
     try {
-      const { data } = await api.get(`/invoice/token/${id}`)
-      window.open(`${BASE_URL}/api/invoice/view/${data.hostel_id}/${id}/${monthYear}?token=${data.token}`, '_blank')
+      const { data } = await api.get(`/invoice/token/${id}?month_year=${monthYear}`)
+      window.open(`${API_ORIGIN}/api/invoice/view/${data.hostel_id}/${id}/${monthYear}?token=${data.token}&expires=${data.expires}`, '_blank', 'noopener,noreferrer')
     } catch { toast.error('Could not open invoice') }
   }
 
@@ -57,15 +55,15 @@ export default function TenantProfile() {
   const isActive  = tenant.status === 'Active'
 
   return (
-    <div className="space-y-5 max-w-3xl">
+    <div className="space-y-5 max-w-3xl mx-auto">
       <button onClick={() => navigate('/tenants')}
         className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-700 transition-colors font-medium">
         <ArrowLeft size={15}/> Back to Tenants
       </button>
 
       {/* ─── PROFILE CARD ─── */}
-      <div className="card p-6">
-        <div className="flex items-start gap-5">
+      <div className="card p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row items-start gap-5">
 
           {/* Avatar */}
           <div className="w-20 h-20 flex-shrink-0">
@@ -87,10 +85,10 @@ export default function TenantProfile() {
                   {isActive ? <><ShieldCheck size={11}/>Active</> : <><UserX size={11}/>Vacated</>}
                 </span>
               </div>
-              <div className="flex gap-2">
+              <div className="flex w-full sm:w-auto gap-2">
                 {isActive
-                  ? <button onClick={markVacated} className="btn-danger btn-sm"><UserX size={12}/> Mark Vacated</button>
-                  : <button onClick={reActivate}  className="btn-success btn-sm"><RefreshCw size={12}/> Re-activate</button>
+                  ? <button onClick={markVacated} className="btn-danger btn-sm w-full sm:w-auto"><UserX size={12}/> Mark Vacated</button>
+                  : <button onClick={reActivate}  className="btn-success btn-sm w-full sm:w-auto"><RefreshCw size={12}/> Re-activate</button>
                 }
               </div>
             </div>
@@ -109,9 +107,9 @@ export default function TenantProfile() {
           <div><span className="text-slate-400 text-xs font-semibold uppercase tracking-wide">Aadhaar</span><p className="font-mono font-medium text-slate-700 mt-0.5">{tenant.aadhaar_number}</p></div>
           {tenant.emergency_contact && <div><span className="text-slate-400 text-xs font-semibold uppercase tracking-wide">Emergency</span><p className="font-medium text-slate-700 mt-0.5">{tenant.emergency_contact}</p></div>}
           {tenant.aadhaar_pdf_url && (
-            <div className="ml-auto">
-              <a href={tenant.aadhaar_pdf_url} target="_blank" rel="noreferrer"
-                className="btn-ghost btn-sm border border-slate-200">📄 Aadhaar PDF</a>
+            <div className="w-full sm:w-auto sm:ml-auto">
+              <a href={apiAssetUrl(tenant.aadhaar_pdf_url)} target="_blank" rel="noreferrer"
+                className="btn-ghost btn-sm border border-slate-200 w-full sm:w-auto">Aadhaar PDF</a>
             </div>
           )}
         </div>
@@ -126,7 +124,7 @@ export default function TenantProfile() {
             ${payments.outstanding_balance > 0 ? 'bg-rose-50' : 'bg-emerald-50'}`}>
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">
-                Cumulative Outstanding (joining date → today)
+                Total remaining from generated bills
               </p>
               <p className={`text-lg font-bold ${payments.outstanding_balance > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
                 {payments.ledger_summary}
@@ -137,16 +135,16 @@ export default function TenantProfile() {
               <div className="w-px bg-slate-200"/>
               <div className="text-center"><p className="font-bold text-base text-money text-slate-700">₹{fmt(payments.monthly_rent)}</p><p>monthly rent</p></div>
               <div className="w-px bg-slate-200"/>
-              <div className="text-center"><p className="font-bold text-base text-money text-slate-700">₹{fmt(payments.cumulative_rent_due)}</p><p>cumulative due</p></div>
+              <div className="text-center"><p className="font-bold text-base text-money text-slate-700">₹{fmt(payments.cumulative_rent_due)}</p><p>rent bills generated</p></div>
             </div>
           </div>
 
           {/* 3 KPIs */}
-          <div className="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100">
+          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 border-b border-slate-100">
             {[
-              { label: 'Total Paid',    val: `₹${fmt(payments.total_paid)}`,          color: 'text-emerald-600', bg: '' },
-              { label: 'Total Billed',  val: `₹${fmt(payments.total_due)}`,            color: 'text-slate-800',   bg: '' },
-              { label: 'Outstanding',   val: `₹${fmt(payments.outstanding_balance)}`,  color: 'text-rose-600',    bg: '' },
+              { label: 'Money received', val: `₹${fmt(payments.total_paid)}`, color: 'text-emerald-600', bg: '' },
+              { label: 'Bills generated', val: `₹${fmt(payments.total_due)}`, color: 'text-slate-800', bg: '' },
+              { label: 'Still remaining', val: `₹${fmt(payments.outstanding_balance)}`, color: 'text-rose-600', bg: '' },
             ].map(k => (
               <div key={k.label} className={`text-center py-4 ${k.bg}`}>
                 <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-1">{k.label}</p>
@@ -156,7 +154,7 @@ export default function TenantProfile() {
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b border-slate-100 px-5 pt-1 gap-0">
+          <div className="flex overflow-x-auto border-b border-slate-100 px-4 sm:px-5 pt-1 gap-0">
             {[['ledger','Monthly Breakdown'],['txlog','Transaction Log']].map(([k,l]) => (
               <button key={k} onClick={() => setTab(k)}
                 className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-bold uppercase tracking-wide border-b-2 transition-colors ${
@@ -175,6 +173,7 @@ export default function TenantProfile() {
               {payments.payments?.length === 0 ? (
                 <p className="text-center text-slate-400 text-sm py-8">No bills generated yet.</p>
               ) : (
+                <div className="table-scroll">
                 <table className="data-table">
                   <thead>
                     <tr>
@@ -214,6 +213,7 @@ export default function TenantProfile() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </>
           )}
@@ -224,6 +224,7 @@ export default function TenantProfile() {
               {payments.transactions?.length === 0 ? (
                 <p className="text-center text-slate-400 text-sm py-8">No payment transactions recorded yet.</p>
               ) : (
+                <div className="table-scroll">
                 <table className="data-table">
                   <thead>
                     <tr>
@@ -250,6 +251,7 @@ export default function TenantProfile() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </>
           )}

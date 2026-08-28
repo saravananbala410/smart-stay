@@ -3,16 +3,17 @@ routers/notices.py - Notice board API
 FIX #6: When a notice is posted, send SMS to all active tenants via Twilio/MSG91
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
-import os
+import os, logging
 
 from app.database import get_db
 from app import models, schemas
 from app.auth import get_current_hostel
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def send_sms_to_tenants(tenants, notice_title: str, notice_content: str):
@@ -40,11 +41,9 @@ def send_sms_to_tenants(tenants, notice_title: str, notice_content: str):
                     phone = "+91" + phone  # India default
                 client.messages.create(body=message, from_=from_, to=phone)
         except Exception as e:
-            print(f"SMS send failed: {e}")
+            logger.warning("Notice SMS send failed: %s", type(e).__name__)
     else:
-        # No Twilio configured — just log
-        for tenant in tenants:
-            print(f"[SMS stub] To {tenant.phone}: {message}")
+        logger.info("Notice SMS skipped for %s tenants; provider not configured", len(tenants))
 
 
 @router.get("/", response_model=List[schemas.NoticeResponse])
@@ -60,6 +59,7 @@ def list_notices(
 @router.post("/", response_model=schemas.NoticeResponse, status_code=201)
 def create_notice(
     payload: schemas.NoticeCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_hostel: models.Hostel = Depends(get_current_hostel)
 ):
@@ -77,7 +77,7 @@ def create_notice(
         models.Tenant.hostel_id == current_hostel.hostel_id,
         models.Tenant.status    == "Active"
     ).all()
-    send_sms_to_tenants(active_tenants, payload.title, payload.content)
+    background_tasks.add_task(send_sms_to_tenants, active_tenants, payload.title, payload.content)
 
     return notice
 

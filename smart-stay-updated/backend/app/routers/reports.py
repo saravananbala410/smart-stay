@@ -9,6 +9,7 @@ from datetime import datetime
 from app.database import get_db
 from app import models
 from app.auth import get_current_hostel
+from app.billing import payment_snapshots
 
 router = APIRouter()
 
@@ -26,10 +27,12 @@ def get_defaulters(
         models.Payment.hostel_id  == hid,
         models.Payment.month_year == month_year
     ).all()
+    snapshots = payment_snapshots(db, payments)
 
     defaulters = []
     for p in payments:
-        balance = p.due_amount - p.amount_paid + p.arrears
+        snapshot = snapshots[p.payment_id]
+        balance = snapshot["balance"]
         if balance > 0:
             tenant = p.tenant
             room_info = f"Room {tenant.room.room_number}" if tenant and tenant.room else "N/A"
@@ -39,9 +42,13 @@ def get_defaulters(
                 "phone"        : tenant.phone if tenant else "",
                 "room"         : room_info,
                 "month_year"   : p.month_year,
-                "due_amount"   : p.due_amount,
-                "arrears"      : p.arrears,
-                "amount_paid"  : p.amount_paid,
+                "due_amount"   : snapshot["current_charges"],
+                "electricity_amount": p.electricity_amount,
+                "additional_amount": p.additional_amount,
+                "arrears"      : snapshot["opening_balance"],
+                "opening_credit": snapshot["opening_credit"],
+                "payable"      : snapshot["payable"],
+                "amount_paid"  : snapshot["amount_paid"],
                 "balance_due"  : round(balance, 2)
             })
 
@@ -67,16 +74,22 @@ def monthly_summary(
         models.Payment.month_year == month_year
     ).all()
 
-    total_due      = sum(p.due_amount for p in payments)
-    total_collected= sum(p.amount_paid for p in payments)
-    total_arrears  = sum(p.arrears for p in payments)
-    total_pending  = sum(max(0, p.due_amount - p.amount_paid + p.arrears) for p in payments)
+    snapshot_map = payment_snapshots(db, payments)
+    snapshots = list(snapshot_map.values())
+    total_due = sum(s["current_charges"] for s in snapshots)
+    total_collected = sum(s["amount_paid"] for s in snapshots)
+    total_arrears = sum(s["opening_balance"] for s in snapshots)
+    total_credit = sum(s["opening_credit"] for s in snapshots)
+    total_payable = sum(s["payable"] for s in snapshots)
+    total_pending = sum(s["balance"] for s in snapshots)
 
     return {
         "month_year"     : month_year,
         "total_due"      : round(total_due, 2),
         "total_collected": round(total_collected, 2),
         "total_arrears"  : round(total_arrears, 2),
+        "total_credit"   : round(total_credit, 2),
+        "total_payable"  : round(total_payable, 2),
         "total_pending"  : round(total_pending, 2),
-        "collection_rate": round((total_collected / total_due * 100) if total_due > 0 else 0, 1)
+        "collection_rate": round((total_collected / total_payable * 100) if total_payable > 0 else 0, 1)
     }

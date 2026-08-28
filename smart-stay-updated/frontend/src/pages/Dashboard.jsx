@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Users, BedDouble, IndianRupee, AlertTriangle, Building2, Plus, Bell, MapPin, UserMinus, DoorOpen, X, Pencil } from 'lucide-react'
-import api from '../api/axios'
+import api, { apiAssetUrl } from '../api/axios'
 import toast from 'react-hot-toast'
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const fmt = n => Number(n || 0).toLocaleString('en-IN')
 
 function KpiCard({ icon: Icon, label, value, sub, iconBg, iconColor }) {
@@ -27,12 +26,15 @@ export default function Dashboard() {
   const [noticeForm,    setNoticeForm]    = useState({ title: '', content: '' })
   const [showNotice,    setShowNotice]    = useState(false)
   const [showEditHostel,setShowEditHostel]= useState(false)
-  const [hostelForm,    setHostelForm]    = useState({ address: '', image_url: '' })
+  const [hostelForm,    setHostelForm]    = useState({ address: '', image_url: '', upi_id: '', payment_due_day: 5 })
 
   const loadStats = () =>
     api.get('/dashboard/stats').then(r => {
       setStats(r.data)
-      setHostelForm({ address: r.data.hostel_address || '', image_url: r.data.hostel_image || '' })
+      setHostelForm({
+        address: r.data.hostel_address || '', image_url: r.data.hostel_image || '',
+        upi_id: r.data.upi_id || '', payment_due_day: r.data.payment_due_day || 5,
+      })
     }).catch(() => {})
 
   useEffect(() => {
@@ -66,16 +68,14 @@ export default function Dashboard() {
     } catch { toast.error('Failed to save') }
   }
 
-  const hostelImg = stats?.hostel_image
-    ? stats.hostel_image.startsWith('http') ? stats.hostel_image : `${BASE_URL}/${stats.hostel_image}`
-    : null
+  const hostelImg = apiAssetUrl(stats?.hostel_image)
 
   return (
-    <div className="space-y-5 max-w-5xl">
+    <div className="space-y-5 max-w-5xl mx-auto">
 
       {/* ─── HOSTEL BANNER ─── */}
       <div className="card overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-5 flex items-center gap-4">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-4 py-5 sm:px-6 flex flex-col sm:flex-row sm:items-center gap-4">
           {hostelImg
             ? <img src={hostelImg} alt="Hostel" className="w-14 h-14 rounded-xl object-cover ring-2 ring-white/30 flex-shrink-0"/>
             : <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
@@ -90,18 +90,18 @@ export default function Dashboard() {
             }
           </div>
           <button onClick={() => setShowEditHostel(true)}
-            className="flex-shrink-0 flex items-center gap-1.5 text-xs border border-white/30 text-white/80 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors">
+            className="w-full sm:w-auto flex-shrink-0 flex items-center justify-center gap-1.5 text-xs border border-white/30 text-white/80 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors">
             <Pencil size={12}/> Edit Info
           </button>
         </div>
       </div>
 
       {/* ─── KPIs ─── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <KpiCard icon={Users}       label="Active Tenants"  value={stats?.total_tenants ?? '—'}  iconBg="bg-blue-50"    iconColor="text-blue-600"/>
         <KpiCard icon={BedDouble}   label="Vacant Beds"     value={stats?.vacant_beds ?? '—'}    iconBg="bg-emerald-50" iconColor="text-emerald-600"/>
         <KpiCard icon={IndianRupee} label="Collected (Month)" value={stats ? `₹${fmt(stats.total_collection_this_month)}` : '—'} sub="This month" iconBg="bg-violet-50" iconColor="text-violet-600"/>
-        <KpiCard icon={AlertTriangle} label="Pending Rent" value={stats ? `₹${fmt(stats.total_pending_rent)}` : '—'} sub="Outstanding" iconBg="bg-rose-50" iconColor="text-rose-500"/>
+        <KpiCard icon={AlertTriangle} label="Still to collect" value={stats ? `₹${fmt(stats.total_pending_rent)}` : '—'} sub="Current bill balance" iconBg="bg-rose-50" iconColor="text-rose-500"/>
       </div>
 
       {/* ─── VACANT ROOMS + OCCUPANCY ─── */}
@@ -144,13 +144,11 @@ export default function Dashboard() {
                 <div className="pt-2 border-t border-slate-100">
                   <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
                     <span>Occupancy rate</span>
-                    <span>{stats.total_rooms > 0
-                      ? Math.round(((stats.total_tenants) / (stats.total_rooms * 4)) * 100)
-                      : 0}%</span>
+                    <span>{stats.occupancy_rate ?? 0}%</span>
                   </div>
                   <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                     <div className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full"
-                      style={{ width: `${stats.total_rooms > 0 ? Math.min(100, Math.round((stats.total_tenants / (stats.total_rooms * 4)) * 100)) : 0}%` }}/>
+                      style={{ width: `${Math.min(100, stats.occupancy_rate ?? 0)}%` }}/>
                   </div>
                 </div>
               </>
@@ -161,7 +159,7 @@ export default function Dashboard() {
 
       {/* ─── NOTICE BOARD ─── */}
       <div className="card overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-4 py-4 sm:px-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-amber-100 rounded-lg"><Bell size={14} className="text-amber-600"/></div>
             <div>
@@ -169,7 +167,7 @@ export default function Dashboard() {
               <p className="text-xs text-slate-400">SMS sent to all tenants on each post</p>
             </div>
           </div>
-          <button onClick={() => setShowNotice(true)} className="btn-primary btn-sm"><Plus size={13}/> Post Notice</button>
+          <button onClick={() => setShowNotice(true)} className="btn-primary btn-sm w-full sm:w-auto"><Plus size={13}/> Post Notice</button>
         </div>
 
         {notices.length === 0 ? (
@@ -180,7 +178,7 @@ export default function Dashboard() {
         ) : (
           <div className="divide-y divide-slate-50">
             {notices.map(n => (
-              <div key={n.notice_id} className="flex items-start gap-4 px-5 py-4 group">
+              <div key={n.notice_id} className="flex items-start gap-3 sm:gap-4 px-4 py-4 sm:px-5 group">
                 <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0 mt-0.5">
                   <Bell size={14} className="text-amber-500"/>
                 </div>
@@ -190,7 +188,7 @@ export default function Dashboard() {
                   <p className="text-slate-300 text-xs mt-1">{new Date(n.created_at).toLocaleString('en-IN')}</p>
                 </div>
                 <button onClick={() => deleteNotice(n.notice_id)}
-                  className="btn-icon opacity-0 group-hover:opacity-100 text-rose-400 hover:text-rose-600">
+                  className="btn-icon opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-rose-400 hover:text-rose-600">
                   <X size={14}/>
                 </button>
               </div>
@@ -204,11 +202,11 @@ export default function Dashboard() {
       {showNotice && (
         <div className="modal-overlay">
           <div className="modal-box max-w-md p-0">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <div className="flex items-center justify-between px-4 py-4 sm:px-6 border-b border-slate-100">
               <h2 className="font-bold text-slate-900">Post Notice</h2>
               <button onClick={() => setShowNotice(false)} className="btn-icon"><X size={18}/></button>
             </div>
-            <form onSubmit={postNotice} className="px-6 py-5 space-y-4">
+            <form onSubmit={postNotice} className="px-4 py-5 sm:px-6 space-y-4">
               <div>
                 <label className="label">Title</label>
                 <input className="input" required placeholder="e.g. Water outage on Sunday" value={noticeForm.title}
@@ -230,11 +228,11 @@ export default function Dashboard() {
       {showEditHostel && (
         <div className="modal-overlay">
           <div className="modal-box max-w-md p-0">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <div className="flex items-center justify-between px-4 py-4 sm:px-6 border-b border-slate-100">
               <h2 className="font-bold text-slate-900">Edit Hostel Info</h2>
               <button onClick={() => setShowEditHostel(false)} className="btn-icon"><X size={18}/></button>
             </div>
-            <form onSubmit={saveHostelInfo} className="px-6 py-5 space-y-4">
+            <form onSubmit={saveHostelInfo} className="px-4 py-5 sm:px-6 space-y-4">
               <div>
                 <label className="label">Address</label>
                 <input className="input" placeholder="12, Gandhi Nagar, Chennai 600001" value={hostelForm.address}
@@ -245,6 +243,17 @@ export default function Dashboard() {
                 <input className="input" placeholder="https://… or /uploads/…" value={hostelForm.image_url}
                   onChange={e => setHostelForm({...hostelForm, image_url: e.target.value})}/>
                 <p className="text-xs text-slate-400 mt-1">Paste a direct image URL or Cloudinary link.</p>
+              </div>
+              <div>
+                <label className="label">Receiving UPI ID</label>
+                <input className="input" placeholder="yourhostel@bank" value={hostelForm.upi_id}
+                  onChange={e => setHostelForm({...hostelForm, upi_id: e.target.value})}/>
+                <p className="mt-1 text-xs text-slate-400">Tenant-specific QR payments will reach this UPI ID.</p>
+              </div>
+              <div>
+                <label className="label">Monthly payment due day</label>
+                <input type="number" min="1" max="28" className="input" value={hostelForm.payment_due_day}
+                  onChange={e => setHostelForm({...hostelForm, payment_due_day: +e.target.value})}/>
               </div>
               <button type="submit" className="btn-primary w-full justify-center py-2.5">Save Info</button>
             </form>

@@ -32,8 +32,8 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-blue-600 flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
+    <div className="min-h-[100dvh] bg-blue-600 flex items-center justify-center p-4">
+      <div className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-md">
         <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">Smart-Stay Register</h2>
         <form onSubmit={submit} className="space-y-4">
           <input 

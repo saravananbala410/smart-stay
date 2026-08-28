@@ -1,49 +1,58 @@
 """
-database.py - SQLite connection with WAL Mode and Timeout fixes + Temporary Reset Patch
+database.py - SQLite connection with WAL mode and lock timeout settings.
 """
 
-from sqlalchemy import create_engine, event
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
 import os
+
 from dotenv import load_dotenv
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 load_dotenv()
 
-# ✅ SQLite Database URL
-DATABASE_URL = "sqlite:///./sql_app.db"
-
-# ✅ Added 'timeout': 30 to wait for locks to release
-engine = create_engine(
-    DATABASE_URL, 
-    connect_args={
-        "check_same_thread": False,
-        "timeout": 30
-    }
+env_database_url = os.getenv("DATABASE_URL", "").strip()
+DATABASE_URL = (
+    env_database_url
+    if env_database_url and "yourpassword" not in env_database_url
+    else "sqlite:///./sql_app.db"
 )
 
-# 🔥 PERMANENT FIX: Enable WAL Mode for SQLite
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={
+        "check_same_thread": False,
+        "timeout": 30,
+    } if DATABASE_URL.startswith("sqlite") else {},
+    pool_pre_ping=True,
+    pool_recycle=1800,
+)
+
+
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
+    if not DATABASE_URL.startswith("sqlite"):
+        return
+
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.execute("PRAGMA busy_timeout=30000")
     cursor.close()
+
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# ─────────────────────────────────────────
-# 🔥 TEMPORARY RESET ACTION: Wipe out all tables on restart
-# ─────────────────────────────────────────
-try:
-    print("📢 Wiping all local/cloud dummy database metrics schemas...")
-    Base.metadata.drop_all(bind=engine)  # 👈 Suthama tables elements-ah erase pannidum da!
-    print("✅ Clear database done! Re-initializing blank fresh template frames...")
-except Exception as e:
-    print(f"❌ Drop tracking skipped or errored: {e}")
+if os.getenv("RESET_DB_ON_STARTUP") == "1":
+    try:
+        print("[database] RESET_DB_ON_STARTUP=1, dropping all tables...")
+        Base.metadata.drop_all(bind=engine)
+        print("[database] Database reset complete.")
+    except Exception as exc:
+        print(f"[database] Database reset skipped or failed: {exc}")
 
-# Dependency - use this in all routers
+
 def get_db():
     db = SessionLocal()
     try:

@@ -1,0 +1,30 @@
+# Local environment and secrets
+**/.env
+**/.env.backup
+
+# Python
+**/.venv/
+**/venv/
+**/__pycache__/
+**/.pytest_cache/
+**/*.py[cod]
+
+# Local databases and runtime data
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/uploads/
+**/*.log
+
+# Frontend dependencies and build output
+**/node_modules/
+**/dist/
+
+# Generated QA artifacts
+**/output/
+**/tmp/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/

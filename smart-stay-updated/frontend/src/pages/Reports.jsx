@@ -31,12 +31,12 @@ export default function Reports() {
 
   const totalCollected = payments.reduce((s, p) => s + p.amount_paid, 0)
   const totalPending   = payments.reduce((s, p) => s + p.balance, 0)
-  const totalDue       = payments.reduce((s, p) => s + p.total_due + (p.arrears||0), 0)
+  const totalDue       = payments.reduce((s, p) => s + (p.payable ?? p.total_due), 0)
   const collectionPct  = totalDue > 0 ? Math.round((totalCollected / totalDue) * 100) : 0
   const monthLabel     = new Date(month + '-01').toLocaleString('en-IN', { month: 'long', year: 'numeric' })
 
   return (
-    <div className="space-y-5 max-w-5xl">
+    <div className="space-y-5 max-w-5xl mx-auto">
 
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap no-print">
@@ -44,11 +44,11 @@ export default function Reports() {
           <h1 className="text-2xl font-bold text-slate-900">Reports</h1>
           <p className="text-slate-400 text-sm mt-0.5">Monthly financial summary & export</p>
         </div>
-        <div className="flex gap-2">
+        <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:flex">
           <input type="month" value={month} onChange={e => setMonth(e.target.value)}
-            className="input !w-auto text-sm font-semibold"/>
+            className="input !w-full sm:!w-auto text-sm font-semibold"/>
           <button onClick={() => window.print()}
-            className="btn-primary btn-sm"><Printer size={13}/> Print / PDF</button>
+            className="btn-primary btn-sm w-full sm:w-auto"><Printer size={13}/> Print / PDF</button>
         </div>
       </div>
 
@@ -65,11 +65,11 @@ export default function Reports() {
           </div>
 
           {/* ─── KPI CARDS ─── */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             {[
               { label: 'Total Billed',  value: `₹${fmt(totalDue)}`,        sub: `${payments.length} tenants`, icon: Users,        bg: 'bg-blue-50',    text: 'text-blue-700'   },
               { label: 'Collected',     value: `₹${fmt(totalCollected)}`,   sub: `${collectionPct}% rate`,     icon: TrendingUp,   bg: 'bg-emerald-50', text: 'text-emerald-700' },
-              { label: 'Outstanding',   value: `₹${fmt(totalPending)}`,     sub: `${payments.filter(p=>p.balance>0).length} tenants`, icon: TrendingDown, bg: 'bg-rose-50', text: 'text-rose-700' },
+              { label: 'Still remaining', value: `₹${fmt(totalPending)}`, sub: `${payments.filter(p=>p.balance>0).length} tenants`, icon: TrendingDown, bg: 'bg-rose-50', text: 'text-rose-700' },
               { label: 'Utilities',     value: `₹${fmt(elecBills.reduce((s,b)=>s+b.total_amount,0) + addCharges.reduce((s,c)=>s+c.total_amount,0))}`, sub: `${elecBills.length} elec + ${addCharges.length} other`, icon: Zap, bg: 'bg-amber-50', text: 'text-amber-700' },
             ].map(c => (
               <div key={c.label} className={`${c.bg} rounded-2xl p-4`}>
@@ -109,6 +109,7 @@ export default function Reports() {
                 <div className="p-1.5 bg-amber-100 rounded-lg"><Zap size={14} className="text-amber-600"/></div>
                 <p className="font-bold text-slate-900 text-sm">Electricity Bills — {monthLabel}</p>
               </div>
+              <div className="table-scroll">
               <table className="data-table">
                 <thead><tr>
                   <th>Room</th><th className="text-right">Total Bill</th>
@@ -119,7 +120,7 @@ export default function Reports() {
                     <tr key={b.bill_id}>
                       <td className="font-semibold">Room {b.room_number}</td>
                       <td className="text-right text-money">₹{fmt(b.total_amount)}</td>
-                      <td className="text-right text-slate-500">{Math.round(b.total_amount/b.per_tenant)}</td>
+                      <td className="text-right text-slate-500">{b.tenant_count}</td>
                       <td className="text-right text-money font-bold text-amber-600">₹{fmt(b.per_tenant)}</td>
                     </tr>
                   ))}
@@ -130,6 +131,7 @@ export default function Reports() {
                   </tr>
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
@@ -140,6 +142,7 @@ export default function Reports() {
                 <div className="p-1.5 bg-violet-100 rounded-lg"><Droplets size={14} className="text-violet-600"/></div>
                 <p className="font-bold text-slate-900 text-sm">Additional Charges — {monthLabel}</p>
               </div>
+              <div className="table-scroll">
               <table className="data-table">
                 <thead><tr>
                   <th>Charge</th><th>Scope</th>
@@ -156,6 +159,7 @@ export default function Reports() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
@@ -168,7 +172,7 @@ export default function Reports() {
             {payments.length === 0 ? (
               <div className="py-12 text-center text-slate-400 text-sm">No payment records for {month}.</div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="table-scroll">
                 <table className="data-table min-w-[900px]">
                   <thead>
                     <tr>
@@ -177,8 +181,8 @@ export default function Reports() {
                       <th className="text-right">Rent</th>
                       <th className="text-right">Electricity</th>
                       <th className="text-right">Other</th>
-                      <th className="text-right">Arrears</th>
-                      <th className="text-right">Total Due</th>
+                      <th className="text-right">Previous balance</th>
+                      <th className="text-right">Total payable</th>
                       <th className="text-right">Paid</th>
                       <th className="text-right">Balance</th>
                       <th>Status</th>
@@ -189,7 +193,7 @@ export default function Reports() {
                     {payments.map((p, i) => (
                       <tr key={p.payment_id} className={p.balance > 0 ? 'bg-rose-50/30' : ''}>
                         <td className="text-slate-300 text-xs">{i + 1}</td>
-                        <td className="font-semibold text-slate-800">{p.tenant_name}</td>
+                        <td className="font-semibold text-slate-800">{p.tenant_name}{p.opening_credit > 0 && <span className="ml-2 badge-blue text-[10px]">₹{fmt(p.opening_credit)} credit used</span>}</td>
                         <td className="text-right text-money">₹{fmt(p.due_amount)}</td>
                         <td className="text-right text-money text-amber-600">
                           {p.electricity_amount > 0 ? `₹${fmt(p.electricity_amount)}` : <span className="text-slate-200">—</span>}
@@ -200,7 +204,7 @@ export default function Reports() {
                         <td className="text-right text-money text-orange-500">
                           {(p.arrears||0) > 0 ? `₹${fmt(p.arrears)}` : <span className="text-slate-200">—</span>}
                         </td>
-                        <td className="text-right text-money font-bold text-slate-900">₹{fmt(p.total_due + (p.arrears||0))}</td>
+                        <td className="text-right text-money font-bold text-slate-900">₹{fmt(p.payable ?? p.total_due)}</td>
                         <td className="text-right text-money font-bold text-emerald-600">₹{fmt(p.amount_paid)}</td>
                         <td className="text-right text-money font-bold">
                           <span className={p.balance > 0 ? 'text-rose-600' : 'text-emerald-600'}>

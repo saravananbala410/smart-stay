@@ -4,7 +4,7 @@ Multi-tenant: Every table has hostel_id for data isolation
 v3.0 - Added PaymentTransaction for individual transaction logs
 """
 
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Date, Enum, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Date, Enum, ForeignKey, Text, Index, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -30,6 +30,8 @@ class Hostel(Base):
     subscription_plan = Column(String(50), default="free")
     address           = Column(String(500), nullable=True)
     image_url         = Column(String(500), nullable=True)
+    upi_id            = Column(String(150), nullable=True)
+    payment_due_day   = Column(Integer, default=5)
     reset_token       = Column(String(255), nullable=True)
     reset_token_expiry= Column(DateTime, nullable=True)
     created_at        = Column(DateTime, server_default=func.now())
@@ -39,7 +41,6 @@ class Hostel(Base):
     transactions      = relationship("PaymentTransaction", back_populates="hostel", cascade="all, delete")
     rent_configs      = relationship("RentConfiguration", back_populates="hostel", cascade="all, delete")
     notices           = relationship("Notice", back_populates="hostel", cascade="all, delete")
-    feedbacks         = relationship("Feedback", back_populates="hostel", cascade="all, delete")
     electricity_bills = relationship("ElectricityBill", back_populates="hostel", cascade="all, delete")
     additional_charges= relationship("AdditionalCharge", back_populates="hostel", cascade="all, delete")
 
@@ -103,6 +104,10 @@ class Payment(Base):
     created_at          = Column(DateTime, server_default=func.now())
     tenant = relationship("Tenant", back_populates="payments")
     hostel = relationship("Hostel", back_populates="payments")
+    __table_args__ = (
+        UniqueConstraint("hostel_id", "tenant_id", "month_year", name="uq_payment_tenant_month"),
+        Index("ix_payments_hostel_month", "hostel_id", "month_year"),
+    )
 
 class PaymentTransaction(Base):
     """Individual payment transaction log — every cash entry is a separate row (FIX #3)"""
@@ -115,9 +120,39 @@ class PaymentTransaction(Base):
     month_year   = Column(String(7), nullable=False)
     transaction_id = Column(String(100), nullable=True)
     note         = Column(String(255), nullable=True)
+    status       = Column(String(20), default="RECEIVED", nullable=False)
+    source       = Column(String(20), default="MANUAL", nullable=False)
     paid_at      = Column(DateTime, server_default=func.now())
     tenant = relationship("Tenant", back_populates="transactions")
     hostel = relationship("Hostel", back_populates="transactions")
+    __table_args__ = (
+        Index("ix_transactions_hostel_month", "hostel_id", "month_year"),
+        Index("ix_transactions_hostel_reference", "hostel_id", "transaction_id"),
+    )
+
+
+class PaymentRequest(Base):
+    """A tenant-facing UPI request. Money is posted only after admin verification."""
+    __tablename__ = "payment_requests"
+    request_id      = Column(Integer, primary_key=True, index=True)
+    tenant_id       = Column(Integer, ForeignKey("tenants.tenant_id"), nullable=False)
+    hostel_id       = Column(Integer, ForeignKey("hostels.hostel_id"), nullable=False)
+    payment_id      = Column(Integer, ForeignKey("payments.payment_id"), nullable=False)
+    public_token    = Column(String(80), unique=True, nullable=False, index=True)
+    month_year      = Column(String(7), nullable=False)
+    requested_amount= Column(Float, nullable=False)
+    status          = Column(String(20), default="PENDING", nullable=False)
+    payer_reference = Column(String(100), nullable=True)
+    failure_reason  = Column(String(255), nullable=True)
+    created_at      = Column(DateTime, server_default=func.now())
+    updated_at      = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    verified_at     = Column(DateTime, nullable=True)
+    tenant          = relationship("Tenant")
+    payment         = relationship("Payment")
+    __table_args__ = (
+        Index("ix_payment_requests_hostel_status", "hostel_id", "status"),
+        Index("ix_payment_requests_tenant_month", "tenant_id", "month_year"),
+    )
 
 class Notice(Base):
     __tablename__ = "notices"
@@ -127,16 +162,6 @@ class Notice(Base):
     content    = Column(Text, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     hostel = relationship("Hostel", back_populates="notices")
-
-class Feedback(Base):
-    __tablename__ = "feedback"
-    feedback_id = Column(Integer, primary_key=True, index=True)
-    hostel_id   = Column(Integer, ForeignKey("hostels.hostel_id"), nullable=False)
-    name        = Column(String(100), nullable=False)
-    message     = Column(Text, nullable=False)
-    device      = Column(String(255), nullable=True)
-    created_at  = Column(DateTime, server_default=func.now())
-    hostel = relationship("Hostel", back_populates="feedbacks")
 
 class ElectricityBill(Base):
     __tablename__ = "electricity_bills"
@@ -148,6 +173,14 @@ class ElectricityBill(Base):
     per_tenant    = Column(Float, nullable=False)
     created_at    = Column(DateTime, server_default=func.now())
     hostel = relationship("Hostel", back_populates="electricity_bills")
+
+class Feedback(Base):
+    """User testing feedback — submitted by anyone, from any device, no login required"""
+    __tablename__ = "feedback"
+    feedback_id = Column(Integer, primary_key=True, index=True)
+    name        = Column(String(100), nullable=False)
+    message     = Column(Text, nullable=False)
+    created_at  = Column(DateTime, server_default=func.now())
 
 class AdditionalCharge(Base):
     __tablename__ = "additional_charges"

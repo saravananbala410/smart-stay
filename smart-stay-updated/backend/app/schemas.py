@@ -2,7 +2,7 @@
 schemas.py - Pydantic models for request validation & response shaping
 """
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from typing import Optional, List
 from datetime import date, datetime
 from enum import Enum
@@ -19,10 +19,10 @@ class TenantStatus(str, Enum):
 
 # ─── AUTH ──────────────────────────────────────────────
 class HostelRegister(BaseModel):
-    name: str
-    owner_name: str
+    name: str = Field(min_length=2, max_length=200)
+    owner_name: str = Field(min_length=2, max_length=100)
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8, max_length=128)
 
 class HostelLogin(BaseModel):
     email: EmailStr
@@ -57,8 +57,7 @@ class RoomResponse(BaseModel):
     occupied_beds: int
     vacant_beds: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ─── RENT CONFIG ───────────────────────────────────────
 class RentConfigUpdate(BaseModel):
@@ -71,8 +70,7 @@ class RentConfigResponse(BaseModel):
     rent_amount: float
     effective_date: date
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ─── TENANTS ───────────────────────────────────────────
 class TenantCreate(BaseModel):
@@ -100,17 +98,31 @@ class TenantResponse(BaseModel):
     status: str
     room_id: Optional[int]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ─── PAYMENTS ──────────────────────────────────────────
 class PaymentCreate(BaseModel):
     tenant_id: int
-    amount_paid: float
-    month_year: str          # "2025-01"
+    amount_paid: float = Field(gt=0, le=10000000)
+    month_year: str = Field(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
     transaction_id: Optional[str] = None
     is_advance: bool = False
     note: Optional[str] = None
+
+
+class PaymentRequestCreate(BaseModel):
+    tenant_id: int
+    month_year: str = Field(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
+    amount: Optional[float] = Field(default=None, gt=0, le=10000000)
+
+
+class PaymentRequestSubmit(BaseModel):
+    payer_reference: str = Field(min_length=4, max_length=100)
+
+
+class PaymentRequestReview(BaseModel):
+    status: str
+    failure_reason: Optional[str] = Field(default=None, max_length=255)
 
 class PaymentResponse(BaseModel):
     payment_id: int
@@ -123,8 +135,7 @@ class PaymentResponse(BaseModel):
     is_advance: bool
     payment_date: Optional[datetime]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ─── DASHBOARD ─────────────────────────────────────────
 class DashboardStats(BaseModel):
@@ -145,25 +156,22 @@ class NoticeResponse(BaseModel):
     content: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
-# ─── PAYMENT TRANSACTION ───────────────────────────────
+# ─── FEEDBACK ───────────────────────────────────────────
 class FeedbackCreate(BaseModel):
     name: str
     message: str
-    device: Optional[str] = None
 
 class FeedbackResponse(BaseModel):
     feedback_id: int
     name: str
     message: str
-    device: Optional[str]
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
+# ─── PAYMENT TRANSACTION ───────────────────────────────
 class PaymentTransactionResponse(BaseModel):
     txn_id: int
     tenant_id: int
@@ -173,5 +181,4 @@ class PaymentTransactionResponse(BaseModel):
     note: Optional[str]
     paid_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

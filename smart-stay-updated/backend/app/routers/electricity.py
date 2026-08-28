@@ -7,24 +7,25 @@ FIX #8: Custom "Add Feature" module — room-specific or hostel-wide split
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.database import get_db
 from app import models
 from app.auth import get_current_hostel
+from app.billing import charge_breakdown, money, month_bounds, tenant_is_billable
 
 router = APIRouter()
 
 
 class ElecBillCreate(BaseModel):
     room_number: str
-    total_amount: float
+    total_amount: float = Field(gt=0, le=10000000)
     month_year: str   # "2025-04"
 
 
 class AddChargeCreate(BaseModel):
     charge_name: str           # "Water", "Internet", "Maintenance", etc.
-    total_amount: float
+    total_amount: float = Field(gt=0, le=10000000)
     month_year: str
     room_number: Optional[str] = None  # None = hostel-wide split
 
@@ -39,6 +40,7 @@ def add_electricity_bill(
 ):
     """FIX #7: Set monthly electricity bill for a room, auto-split across active tenants."""
     hid = current_hostel.hostel_id
+    month_bounds(payload.month_year)
 
     room = db.query(models.Room).filter(
         models.Room.hostel_id   == hid,
@@ -47,16 +49,16 @@ def add_electricity_bill(
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
 
-    active_tenants = db.query(models.Tenant).filter(
+    room_tenants = db.query(models.Tenant).filter(
         models.Tenant.hostel_id == hid,
-        models.Tenant.room_id   == room.room_id,
-        models.Tenant.status    == "Active"
+        models.Tenant.room_id   == room.room_id
     ).all()
+    active_tenants = [t for t in room_tenants if tenant_is_billable(t, payload.month_year)]
 
     if not active_tenants:
         raise HTTPException(status_code=400, detail="No active tenants in this room")
 
-    per_tenant = round(payload.total_amount / len(active_tenants), 2)
+    per_tenant = money(payload.total_amount / len(active_tenants))
 
     existing = db.query(models.ElectricityBill).filter(
         models.ElectricityBill.hostel_id   == hid,
@@ -76,14 +78,15 @@ def add_electricity_bill(
         )
         db.add(bill)
 
-    # Update existing payment rows for this month in this room
+    db.flush()
+    # Update existing payment rows using exact-paise deterministic allocation.
     for tenant in active_tenants:
         payment = db.query(models.Payment).filter(
             models.Payment.tenant_id  == tenant.tenant_id,
             models.Payment.month_year == payload.month_year
         ).first()
         if payment:
-            payment.electricity_amount = per_tenant
+            payment.electricity_amount = charge_breakdown(tenant, payload.month_year, db, hid)["electricity"]
 
     db.commit()
     return {
@@ -106,7 +109,24 @@ def list_electricity_bills(
     )
     if month_year:
         query = query.filter(models.ElectricityBill.month_year == month_year)
-    return query.order_by(models.ElectricityBill.month_year.desc()).all()
+    bills = query.order_by(models.ElectricityBill.month_year.desc()).all()
+    rooms = {
+        room.room_number: room for room in db.query(models.Room).filter(
+            models.Room.hostel_id == current_hostel.hostel_id
+        ).all()
+    }
+    tenants = db.query(models.Tenant).filter(models.Tenant.hostel_id == current_hostel.hostel_id).all()
+    result = []
+    for bill in bills:
+        room = rooms.get(bill.room_number)
+        eligible = [t for t in tenants if room and t.room_id == room.room_id and tenant_is_billable(t, bill.month_year)]
+        result.append({
+            "bill_id": bill.bill_id, "room_number": bill.room_number,
+            "total_amount": bill.total_amount, "month_year": bill.month_year,
+            "per_tenant": money(bill.total_amount / len(eligible)) if eligible else 0,
+            "tenant_count": len(eligible),
+        })
+    return result
 
 
 # ─── ADDITIONAL / CUSTOM CHARGES ────────────────
@@ -123,6 +143,7 @@ def add_additional_charge(
     - room_number set   → room-specific split (e.g. water for Room 101)
     """
     hid = current_hostel.hostel_id
+    month_bounds(payload.month_year)
 
     if payload.room_number:
         # Room-specific
@@ -132,22 +153,20 @@ def add_additional_charge(
         ).first()
         if not room:
             raise HTTPException(status_code=404, detail="Room not found")
-        active_tenants = db.query(models.Tenant).filter(
+        room_tenants = db.query(models.Tenant).filter(
             models.Tenant.hostel_id == hid,
-            models.Tenant.room_id   == room.room_id,
-            models.Tenant.status    == "Active"
+            models.Tenant.room_id   == room.room_id
         ).all()
+        active_tenants = [t for t in room_tenants if tenant_is_billable(t, payload.month_year)]
     else:
         # Hostel-wide
-        active_tenants = db.query(models.Tenant).filter(
-            models.Tenant.hostel_id == hid,
-            models.Tenant.status    == "Active"
-        ).all()
+        hostel_tenants = db.query(models.Tenant).filter(models.Tenant.hostel_id == hid).all()
+        active_tenants = [t for t in hostel_tenants if tenant_is_billable(t, payload.month_year)]
 
     if not active_tenants:
         raise HTTPException(status_code=400, detail="No active tenants to split across")
 
-    per_tenant = round(payload.total_amount / len(active_tenants), 2)
+    per_tenant = money(payload.total_amount / len(active_tenants))
 
     existing = db.query(models.AdditionalCharge).filter(
         models.AdditionalCharge.hostel_id   == hid,
@@ -169,36 +188,15 @@ def add_additional_charge(
         )
         db.add(charge)
 
-    # Update payment rows for these tenants this month
+    db.flush()
+    # Recompute from persisted charges. This avoids the old double-add bug.
     for tenant in active_tenants:
         payment = db.query(models.Payment).filter(
             models.Payment.tenant_id  == tenant.tenant_id,
             models.Payment.month_year == payload.month_year
         ).first()
         if payment:
-            # Recompute all additional charges for this tenant's month
-            room_specific = db.query(models.AdditionalCharge).filter(
-                models.AdditionalCharge.hostel_id   == hid,
-                models.AdditionalCharge.month_year  == payload.month_year,
-                models.AdditionalCharge.room_number == tenant.room.room_number if tenant.room else None
-            ).all() if tenant.room else []
-
-            hostel_wide = db.query(models.AdditionalCharge).filter(
-                models.AdditionalCharge.hostel_id   == hid,
-                models.AdditionalCharge.month_year  == payload.month_year,
-                models.AdditionalCharge.room_number == None
-            ).all()
-
-            # Include the just-added record if not yet committed
-            if existing:
-                all_charges = room_specific + hostel_wide
-            else:
-                # temporarily add the per_tenant we computed
-                total_add = sum(ac.per_tenant for ac in room_specific + hostel_wide) + per_tenant
-                payment.additional_amount = round(total_add, 2)
-                continue
-
-            payment.additional_amount = round(sum(ac.per_tenant for ac in all_charges), 2)
+            payment.additional_amount = charge_breakdown(tenant, payload.month_year, db, hid)["additional"]
 
     db.commit()
     return {
@@ -222,6 +220,7 @@ def list_additional_charges(
     if month_year:
         query = query.filter(models.AdditionalCharge.month_year == month_year)
     results = query.order_by(models.AdditionalCharge.month_year.desc()).all()
+    tenants = db.query(models.Tenant).filter(models.Tenant.hostel_id == current_hostel.hostel_id).all()
     return [
         {
             "charge_id"  : c.charge_id,
@@ -231,6 +230,10 @@ def list_additional_charges(
             "per_tenant" : c.per_tenant,
             "month_year" : c.month_year,
             "scope"      : f"Room {c.room_number}" if c.room_number else "Hostel-wide"
+            ,"tenant_count": len([
+                t for t in tenants if tenant_is_billable(t, c.month_year)
+                and (c.room_number is None or (t.room and t.room.room_number == c.room_number))
+            ])
         }
         for c in results
     ]

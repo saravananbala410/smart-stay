@@ -56,19 +56,19 @@ export default function Rooms() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 max-w-5xl mx-auto">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Rooms</h1>
           <p className="text-gray-500 text-sm">{rooms.length} rooms configured</p>
         </div>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
           <button onClick={() => setShowConfig(true)}
-            className="flex items-center gap-1 text-sm border border-indigo-300 text-indigo-700 px-3 py-2 rounded-lg hover:bg-indigo-50">
+            className="btn-ghost btn-sm border border-indigo-300 text-indigo-700 hover:bg-indigo-50">
             <Settings size={14} /> Rent Config
           </button>
           <button onClick={() => setShowAdd(true)}
-            className="flex items-center gap-1 text-sm bg-indigo-600 text-white px-3 py-2 rounded-lg hover:bg-indigo-700">
+            className="btn-primary btn-sm">
             <Plus size={14} /> Add Room
           </button>
         </div>
@@ -77,7 +77,7 @@ export default function Rooms() {
       {/* Rooms grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {rooms.map(r => (
-          <div key={r.room_id} className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <div key={r.room_id} className="bg-white rounded-xl p-4 sm:p-5 shadow-sm border border-gray-100">
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-2">
@@ -103,7 +103,7 @@ export default function Rooms() {
           </div>
         ))}
         {rooms.length === 0 && (
-          <div className="col-span-3 text-center py-16 text-gray-400">
+          <div className="col-span-full text-center py-16 text-gray-400">
             <BedDouble size={40} className="mx-auto mb-3 opacity-30" />
             <p>No rooms added yet.</p>
           </div>
@@ -118,13 +118,13 @@ export default function Rooms() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Sharing Type</label>
               <select value={form.sharing_type} onChange={e => setForm({...form, sharing_type: e.target.value, total_beds: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                className="input">
                 {sharingTypes.map(t => <option key={t} value={t}>{sharingLabel[t]}</option>)}
               </select>
             </div>
             <Field label="Base Rent (₹)" type="number" value={form.base_rent} onChange={v => setForm({...form, base_rent: v})} placeholder="5000" />
             <Field label="Total Beds" type="number" value={form.total_beds} onChange={v => setForm({...form, total_beds: v})} placeholder="4" />
-            <button type="submit" className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700">Add Room</button>
+            <button type="submit" className="btn-primary w-full">Add Room</button>
           </form>
         </Modal>
       )}
@@ -145,13 +145,13 @@ export default function Rooms() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Sharing Type</label>
               <select value={rentForm.sharing_type} onChange={e => setRentForm({...rentForm, sharing_type: e.target.value})}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                className="input">
                 {sharingTypes.map(t => <option key={t} value={t}>{sharingLabel[t]}</option>)}
               </select>
             </div>
             <Field label="New Rent Amount (₹)" type="number" value={rentForm.rent_amount} onChange={v => setRentForm({...rentForm, rent_amount: v})} placeholder="6500" />
             <Field label="Effective From" type="date" value={rentForm.effective_date} onChange={v => setRentForm({...rentForm, effective_date: v})} />
-            <button type="submit" className="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-medium hover:bg-indigo-700">Update Rent</button>
+            <button type="submit" className="btn-primary w-full">Update Rent</button>
           </form>
         </Modal>
       )}
@@ -160,11 +160,11 @@ export default function Rooms() {
 }
 
 const Modal = ({ title, onClose, children }) => (
-  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-    <div className="modal-box w-full max-w-md p-6 shadow-2xl">
+  <div className="modal-overlay">
+    <div className="modal-box max-w-md p-4 sm:p-6 shadow-2xl">
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-lg font-semibold text-gray-800">{title}</h2>
-        <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-gray-700" /></button>
+        <button onClick={onClose} className="btn-icon"><X size={20} /></button>
       </div>
       {children}
     </div>
@@ -176,6 +176,6 @@ const Field = ({ label, value, onChange, type = 'text', placeholder }) => (
     <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
     <input type={type} required value={value} placeholder={placeholder}
       onChange={e => onChange(e.target.value)}
-      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+      className="input" />
   </div>
 )
