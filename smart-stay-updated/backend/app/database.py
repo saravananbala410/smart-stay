@@ -11,6 +11,11 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 load_dotenv()
 
 env_database_url = os.getenv("DATABASE_URL", "").strip()
+# Some managed providers still expose the legacy postgres:// scheme. SQLAlchemy
+# expects postgresql:// when loading the PostgreSQL driver.
+if env_database_url.startswith("postgres://"):
+    env_database_url = "postgresql://" + env_database_url[len("postgres://"):]
+
 DATABASE_URL = (
     env_database_url
     if env_database_url and "yourpassword" not in env_database_url

@@ -85,3 +85,14 @@ app.include_router(feedback.router,     prefix="/api/feedback",     tags=["Feedb
 @app.get("/")
 def root():
     return {"message": "Smart-Stay API v3.0 is running! 🏠", "docs": "/docs"}
+
+
+@app.get("/health")
+def health():
+    """Verify that the API can reach its configured database without exposing credentials."""
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+    return {
+        "status": "healthy",
+        "database": engine.url.get_backend_name(),
+    }
