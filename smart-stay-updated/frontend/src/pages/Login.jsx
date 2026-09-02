@@ -1,70 +1,52 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { ArrowRight, LockKeyhole, Mail } from 'lucide-react'
 import api from '../api/axios'
+import { apiErrorMessage } from '../api/errors'
 import toast from 'react-hot-toast'
+import AuthShell from '../components/AuthShell'
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
-  const submit = async e => {
-    e.preventDefault()
+  const submit = async event => {
+    event.preventDefault()
     setLoading(true)
     try {
-      const { data } = await api.post('/auth/login', form)
+      const { data } = await api.post('/auth/login', { ...form, email: form.email.trim().toLowerCase() })
       localStorage.setItem('token', data.access_token)
       localStorage.setItem('hostel_id', data.hostel_id)
       localStorage.setItem('hostel_name', data.hostel_name)
       toast.success('Welcome back!')
       navigate('/')
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Login failed')
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Login failed'))
     } finally { setLoading(false) }
   }
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 sm:p-8">
-        <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🏠</div>
-          <h1 className="text-2xl font-bold text-gray-800">Smart-Stay</h1>
-          <p className="text-gray-500 text-sm mt-1">PG / Hostel Management System</p>
+    <AuthShell
+      kicker="Welcome back"
+      title="Sign in to your workspace"
+      subtitle="Manage tenants, collections and your daily property operations."
+      footer={<>New to Smart Stay? <Link to="/register" className="font-bold text-indigo-600 hover:text-indigo-700">Create your property</Link></>}
+    >
+      <form onSubmit={submit} className="space-y-4">
+        <div>
+          <label className="label">Email address</label>
+          <div className="relative"><Mail size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"/><input type="email" required autoComplete="email" className="input pl-10" placeholder="admin@myhostel.com" value={form.email} onChange={event => setForm({ ...form, email: event.target.value })}/></div>
         </div>
-
-        <form onSubmit={submit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input type="email" required
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              placeholder="admin@myhostel.com"
-              value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input type="password" required
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              placeholder="••••••••"
-              value={form.password} onChange={e => setForm({...form, password: e.target.value})} />
-          </div>
-
-          <div className="text-right">
-            <Link to="/forgot-password" className="text-blue-600 text-sm hover:underline">
-              Forgot Password?
-            </Link>
-          </div>
-
-          <button type="submit" disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-60">
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
-        </form>
-
-        <p className="text-center text-sm text-gray-500 mt-6">
-          New hostel?{' '}
-          <Link to="/register" className="text-blue-600 font-medium hover:underline">Register here</Link>
-        </p>
-      </div>
-    </div>
+        <div>
+          <div className="flex items-center justify-between"><label className="label">Password</label><Link to="/forgot-password" className="mb-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700">Forgot password?</Link></div>
+          <div className="relative"><LockKeyhole size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"/><input type="password" required autoComplete="current-password" className="input pl-10" placeholder="Enter your password" value={form.password} onChange={event => setForm({ ...form, password: event.target.value })}/></div>
+        </div>
+        <button type="submit" disabled={loading} className="btn-primary mt-2 w-full">
+          {loading ? 'Signing in…' : <><span>Sign in securely</span><ArrowRight size={16}/></>}
+        </button>
+      </form>
+      <p className="mt-4 flex items-center justify-center gap-2 text-[11px] text-slate-400"><LockKeyhole size={12}/>Your session is securely encrypted</p>
+    </AuthShell>
   )
 }

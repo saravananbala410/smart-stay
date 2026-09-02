@@ -1,77 +1,60 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import api from '../api/axios';
-import toast from 'react-hot-toast';
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowRight, Building2, LockKeyhole, Mail, UserRound } from 'lucide-react'
+import api from '../api/axios'
+import { apiErrorMessage } from '../api/errors'
+import toast from 'react-hot-toast'
+import AuthShell from '../components/AuthShell'
 
 export default function Register() {
-  // ✅ Backend 'HostelRegister' schema-ku yetha maadhiri 'name' nu mathiyacha
-  const [form, setForm] = useState({ 
-    name: '',         
-    owner_name: '', 
-    email: '', 
-    password: '' 
-  });
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const [form, setForm] = useState({ name: '', owner_name: '', email: '', password: '' })
+  const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
 
-  const submit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  const submit = async event => {
+    event.preventDefault()
+    setLoading(true)
     try {
-      // ✅ Main.py-la prefix '/auth' nu irundha dhaan idhu work aagum
-      await api.post('/auth/register', form);
-      toast.success('Registered Successfully!');
-      navigate('/login');
-    } catch (err) {
-      console.log("Error details:", err.response?.data);
-      const msg = err.response?.data?.detail;
-      toast.error(Array.isArray(msg) ? "Validation Error: Check your inputs" : (typeof msg === 'string' ? msg : "Registration failed"));
-    } finally {
-      setLoading(false);
-    }
-  };
+      await api.post('/auth/register', {
+        ...form,
+        name: form.name.trim(),
+        owner_name: form.owner_name.trim(),
+        email: form.email.trim().toLowerCase(),
+      })
+      toast.success('Property registered successfully!')
+      navigate('/login')
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Registration failed'))
+    } finally { setLoading(false) }
+  }
+
+  const fields = [
+    { key: 'name', label: 'Property name', placeholder: 'Sunrise Living', icon: Building2, type: 'text', autoComplete: 'organization' },
+    { key: 'owner_name', label: 'Owner name', placeholder: 'Ravi Kumar', icon: UserRound, type: 'text', autoComplete: 'name' },
+    { key: 'email', label: 'Work email', placeholder: 'ravi@sunrise.com', icon: Mail, type: 'email', autoComplete: 'email' },
+    { key: 'password', label: 'Create password', placeholder: 'Minimum 8 characters', icon: LockKeyhole, type: 'password', autoComplete: 'new-password' },
+  ]
 
   return (
-    <div className="min-h-[100dvh] bg-blue-600 flex items-center justify-center p-4">
-      <div className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-md">
-        <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">Smart-Stay Register</h2>
-        <form onSubmit={submit} className="space-y-4">
-          <input 
-            type="text" placeholder="Hostel Name" required 
-            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            value={form.name} 
-            onChange={e => setForm({...form, name: e.target.value})} 
-          />
-          
-          <input 
-            type="text" placeholder="Owner Name" required 
-            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            value={form.owner_name} 
-            onChange={e => setForm({...form, owner_name: e.target.value})} 
-          />
-          
-          <input 
-            type="email" placeholder="Email" required 
-            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            value={form.email} 
-            onChange={e => setForm({...form, email: e.target.value})} 
-          />
-          
-          <input 
-            type="password" placeholder="Password" required 
-            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            value={form.password} 
-            onChange={e => setForm({...form, password: e.target.value})} 
-          />
-          
-          <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 transition-all">
-            {loading ? 'Creating Account...' : 'Register Hostel'}
-          </button>
-        </form>
-        <p className="mt-4 text-center text-sm text-gray-600">
-          Already have an account? <Link to="/login" className="text-blue-600 font-bold hover:underline">Login</Link>
-        </p>
-      </div>
-    </div>
-  );
+    <AuthShell
+      kicker="Start your workspace"
+      title="Bring your property online"
+      subtitle="Create your secure admin account. You can configure rooms and rent next."
+      footer={<>Already using Smart Stay? <Link to="/login" className="font-bold text-indigo-600 hover:text-indigo-700">Sign in</Link></>}
+    >
+      <form onSubmit={submit} className="space-y-3.5">
+        {fields.map(({ key, label, placeholder, icon: Icon, type, autoComplete }) => (
+          <div key={key}>
+            <label className="label">{label}</label>
+            <div className="relative"><Icon size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"/><input required type={type} minLength={key === 'password' ? 8 : key === 'name' || key === 'owner_name' ? 2 : undefined} maxLength={key === 'password' ? 128 : undefined} autoComplete={autoComplete} placeholder={placeholder} className="input pl-10" value={form[key]} onChange={event => setForm({ ...form, [key]: event.target.value })}/></div>
+            {key === 'password' && <p className="mt-1.5 text-[11px] text-slate-400">Use at least 8 characters.</p>}
+          </div>
+        ))}
+        <button type="submit" disabled={loading} className="btn-primary mt-2 w-full">
+          {loading ? 'Creating workspace…' : <><span>Create my workspace</span><ArrowRight size={16}/></>}
+        </button>
+      </form>
+      <p className="mt-4 text-center text-[11px] leading-5 text-slate-400">By continuing, you agree to keep tenant information secure and use it only for property operations.</p>
+    </AuthShell>
+  )
 }

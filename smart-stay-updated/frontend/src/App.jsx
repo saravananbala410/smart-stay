@@ -21,7 +21,17 @@ const PrivateRoute = ({ children }) => {
 export default function App() {
   return (
     <BrowserRouter>
-      <Toaster position="top-right" />
+      <Toaster position="top-right" toastOptions={{
+        duration: 4000,
+        style: {
+          borderRadius: '14px',
+          background: '#111827',
+          color: '#fff',
+          fontSize: '13px',
+          fontWeight: 700,
+          boxShadow: '0 18px 45px -18px rgba(15,23,42,.55)',
+        },
+      }} />
       <FeedbackWidget />
       <Routes>
         <Route path="/login"          element={<Login />} />

@@ -19,6 +19,7 @@
 # Frontend dependencies and build output
 **/node_modules/
 **/dist/
+/smart-stay-updated/package-lock.json
 
 # Generated QA artifacts
 **/output/

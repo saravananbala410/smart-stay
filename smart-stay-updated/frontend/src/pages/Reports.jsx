@@ -36,13 +36,14 @@ export default function Reports() {
   const monthLabel     = new Date(month + '-01').toLocaleString('en-IN', { month: 'long', year: 'numeric' })
 
   return (
-    <div className="space-y-5 max-w-5xl mx-auto">
+    <div className="page-shell">
 
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap no-print">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Reports</h1>
-          <p className="text-slate-400 text-sm mt-0.5">Monthly financial summary & export</p>
+          <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-500">Business intelligence</p>
+          <h1 className="page-title">Reports</h1>
+          <p className="page-subtitle">Monthly financial performance, breakdowns and export.</p>
         </div>
         <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:flex">
           <input type="month" value={month} onChange={e => setMonth(e.target.value)}

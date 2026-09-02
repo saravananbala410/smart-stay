@@ -55,7 +55,7 @@ export default function TenantProfile() {
   const isActive  = tenant.status === 'Active'
 
   return (
-    <div className="space-y-5 max-w-3xl mx-auto">
+    <div className="page-shell max-w-5xl">
       <button onClick={() => navigate('/tenants')}
         className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-700 transition-colors font-medium">
         <ArrowLeft size={15}/> Back to Tenants

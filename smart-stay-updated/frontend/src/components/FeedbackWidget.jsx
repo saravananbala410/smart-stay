@@ -39,7 +39,7 @@ export default function FeedbackWidget() {
       <button
         onClick={() => setOpen(true)}
         aria-label="Give feedback"
-        className="fixed bottom-20 right-4 md:bottom-5 md:right-5 z-50 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center hover:bg-blue-700 active:scale-95 transition-all"
+        className="fixed bottom-[92px] right-4 z-50 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/20 bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-[0_16px_32px_-12px_rgba(79,70,229,0.7)] transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_36px_-12px_rgba(79,70,229,0.8)] active:scale-95 md:bottom-5 md:right-5 sm:h-14 sm:w-14"
       >
         <MessageCircle size={24} />
       </button>
@@ -47,40 +47,40 @@ export default function FeedbackWidget() {
       {/* Modal */}
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={close} />
-          <div className="relative z-10 w-full max-w-sm bg-white rounded-2xl shadow-xl p-5 animate-in">
+          <div className="absolute inset-0 bg-slate-950/55 backdrop-blur-[6px]" onClick={close} />
+          <div className="card relative z-10 w-full max-w-sm rounded-[24px] p-5 shadow-[0_30px_90px_-25px_rgba(15,23,42,0.5)] animate-in sm:p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-slate-900 text-base">Share your feedback</h3>
-              <button onClick={close} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100">
+              <div><p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-indigo-500">Help us improve</p><h3 className="mt-1 text-lg font-black tracking-tight text-slate-950">Share your feedback</h3></div>
+              <button onClick={close} className="btn-icon">
                 <X size={18} />
               </button>
             </div>
 
             <form onSubmit={submit} className="space-y-3">
               <div>
-                <label className="text-xs font-medium text-slate-500">Your name</label>
+                <label className="label">Your name</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Enter your name"
-                  className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="input"
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-500">Your feedback</label>
+                <label className="label">Your feedback</label>
                 <textarea
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Tell us what you think..."
                   rows={4}
-                  className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="input min-h-28 resize-none"
                 />
               </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white text-sm font-medium py-2.5 rounded-xl hover:bg-blue-700 disabled:opacity-60 transition-all"
+                className="btn-primary w-full"
               >
                 <Send size={15} />
                 {loading ? 'Submitting...' : 'Submit feedback'}

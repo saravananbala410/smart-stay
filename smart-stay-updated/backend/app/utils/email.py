@@ -1,48 +1,70 @@
-"""
-utils/email.py - Email sending for forgot password
-Uses Gmail SMTP (free)
-"""
+"""Password-recovery email delivery with explicit configuration checks."""
 
+import logging
+import os
 import smtplib
-import os, logging
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+from email.message import EmailMessage
+
 from dotenv import load_dotenv
 
 load_dotenv()
 logger = logging.getLogger(__name__)
 
-SMTP_EMAIL    = os.getenv("SMTP_EMAIL", "your@gmail.com")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "your_app_password")
-FRONTEND_URL  = os.getenv("FRONTEND_URL", "http://localhost:5173")
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com").strip()
+SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
+SMTP_EMAIL = os.getenv("SMTP_EMAIL", "").strip()
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "").replace(" ", "").strip()
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 
-def send_reset_email(to_email: str, reset_token: str):
-    """Send password reset email"""
+
+def email_is_configured() -> bool:
+    """Return True only when real SMTP credentials are present."""
+    invalid_values = {"", "your@gmail.com", "your_app_password", "your_gmail_app_password"}
+    return (
+        bool(SMTP_HOST)
+        and SMTP_EMAIL.lower() not in invalid_values
+        and SMTP_PASSWORD.lower() not in invalid_values
+    )
+
+
+def send_reset_email(to_email: str, reset_token: str) -> bool:
+    """Send a reset email and report whether the provider accepted it."""
+    if not email_is_configured():
+        logger.error("Password reset email skipped: SMTP is not configured")
+        return False
+
     reset_link = f"{FRONTEND_URL}/reset-password?token={reset_token}"
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = "Smart-Stay - Password Reset Request"
-    msg["From"]    = SMTP_EMAIL
-    msg["To"]      = to_email
-
-    html = f"""
-    <html><body>
-    <h2>🏠 Smart-Stay Password Reset</h2>
-    <p>Click the link below to reset your password:</p>
-    <a href="{reset_link}" style="background:#6366f1;color:white;padding:10px 20px;border-radius:5px;text-decoration:none;">
-        Reset Password
-    </a>
-    <p>This link expires in 1 hour.</p>
-    <p>If you didn't request this, ignore this email.</p>
-    </body></html>
-    """
-    msg.attach(MIMEText(html, "html"))
+    message = EmailMessage()
+    message["Subject"] = "Smart Stay - Password reset"
+    message["From"] = SMTP_EMAIL
+    message["To"] = to_email
+    message.set_content(
+        "Reset your Smart Stay password using this secure link:\n\n"
+        f"{reset_link}\n\nThis link expires in 1 hour."
+    )
+    message.add_alternative(
+        f"""
+        <html><body style="font-family:Arial,sans-serif;color:#111827;line-height:1.6">
+          <div style="max-width:520px;margin:0 auto;padding:28px;border:1px solid #e5e7eb;border-radius:18px">
+            <p style="font-size:12px;font-weight:700;letter-spacing:.12em;color:#6366f1;text-transform:uppercase">Smart Stay</p>
+            <h2 style="margin:8px 0 10px">Reset your password</h2>
+            <p style="color:#667085">Use the button below to choose a new password for your property workspace.</p>
+            <p style="margin:26px 0">
+              <a href="{reset_link}" style="background:#4f46e5;color:white;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:700">Reset password</a>
+            </p>
+            <p style="font-size:12px;color:#98a2b3">This link expires in 1 hour. If you did not request it, you can ignore this email.</p>
+          </div>
+        </body></html>
+        """,
+        subtype="html",
+    )
 
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=10) as server:
             server.login(SMTP_EMAIL, SMTP_PASSWORD)
-            server.sendmail(SMTP_EMAIL, to_email, msg.as_string())
-        logger.info("Password reset email sent")
-    except Exception as e:
-        logger.warning("Password reset email failed: %s", type(e).__name__)
-        # Don't raise — email failure shouldn't break the API
+            server.send_message(message)
+        logger.info("Password reset email accepted by SMTP provider")
+        return True
+    except (OSError, smtplib.SMTPException):
+        logger.exception("Password reset email delivery failed")
+        return False

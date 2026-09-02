@@ -182,13 +182,14 @@ export default function Payments() {
   ]
 
   return (
-    <div className="space-y-5 max-w-5xl mx-auto">
+    <div className="page-shell">
 
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Bills & payments</h1>
-          <p className="text-slate-500 text-sm mt-1">See exactly what was billed, paid and still remaining.</p>
+          <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-500">Revenue operations</p>
+          <h1 className="page-title">Bills & payments</h1>
+          <p className="page-subtitle">See exactly what was billed, paid and still remaining.</p>
         </div>
         <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:flex sm:flex-wrap sm:items-center">
           <input type="month" value={month} onChange={e => setMonth(e.target.value)}
@@ -522,7 +523,8 @@ export default function Payments() {
       {activeRequest && (
         <Modal title="Tenant payment QR" onClose={() => setActiveRequest(null)}>
           <div className="space-y-4 text-center">
-            <div className="rounded-2xl bg-[#073c34] p-4 text-white">
+            <div className="relative overflow-hidden rounded-2xl bg-slate-950 p-4 text-white">
+              <div className="pointer-events-none absolute -right-8 -top-12 h-32 w-32 rounded-full bg-violet-500/40 blur-2xl"/>
               <p className="text-xs font-semibold text-emerald-100/70">PAYING FOR</p>
               <p className="mt-1 text-lg font-bold">{activeRequest.tenant_name}</p>
               <p className="text-sm text-emerald-100">{activeRequest.tenant_phone} · Room {activeRequest.room_number || '—'}</p>

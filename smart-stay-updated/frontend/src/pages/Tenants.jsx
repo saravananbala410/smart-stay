@@ -79,13 +79,14 @@ export default function Tenants() {
   }
 
   return (
-    <div className="space-y-5 max-w-3xl mx-auto">
+    <div className="page-shell max-w-5xl">
 
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Tenants</h1>
-          <p className="text-slate-400 text-sm mt-0.5">{tenants.length} {tab.toLowerCase()} tenant{tenants.length !== 1 ? 's' : ''}</p>
+          <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-indigo-500">Resident directory</p>
+          <h1 className="page-title">Tenants</h1>
+          <p className="page-subtitle">{tenants.length} {tab.toLowerCase()} tenant{tenants.length !== 1 ? 's' : ''} in this property.</p>
         </div>
         <button onClick={() => setShowAdd(true)} className="btn-primary btn-sm w-full sm:w-auto">
           <Plus size={13}/> Add Tenant

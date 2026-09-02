@@ -2,6 +2,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import httpx
 from sqlalchemy import create_engine
@@ -51,6 +52,19 @@ class PaymentApiFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 201, response.text)
         token = response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
+
+        response = await self.client.post("/auth/login", json={
+            "email": "API-FLOW@EXAMPLE.COM", "password": "StrongPassword123!",
+        })
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertTrue(response.json()["access_token"])
+
+        with patch("app.routers.hostels.email_is_configured", return_value=False):
+            response = await self.client.post("/auth/forgot-password", json={
+                "email": "api-flow@example.com",
+            })
+        self.assertEqual(response.status_code, 503, response.text)
+        self.assertIn("not configured", response.json()["detail"].lower())
 
         response = await self.client.post("/api/rooms/", headers=headers, json={
             "room_number": "A1", "sharing_type": "2", "base_rent": 6000, "total_beds": 2,

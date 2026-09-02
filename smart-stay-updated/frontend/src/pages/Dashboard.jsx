@@ -7,14 +7,15 @@ const fmt = n => Number(n || 0).toLocaleString('en-IN')
 
 function KpiCard({ icon: Icon, label, value, sub, iconBg, iconColor }) {
   return (
-    <div className="card p-5 flex items-center gap-4">
-      <div className={`p-3 rounded-2xl flex-shrink-0 ${iconBg}`}>
-        <Icon size={20} className={iconColor}/>
+    <div className="stat-card group">
+      <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-indigo-100/35 transition-transform duration-300 group-hover:scale-125"/>
+      <div className={`relative p-3 rounded-2xl flex-shrink-0 ring-1 ring-inset ring-black/[0.035] ${iconBg}`}>
+        <Icon size={20} strokeWidth={2.2} className={iconColor}/>
       </div>
-      <div className="min-w-0">
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{label}</p>
-        <p className="text-2xl font-bold text-slate-900 mt-0.5 text-money truncate">{value}</p>
-        {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
+      <div className="relative min-w-0">
+        <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-[0.1em]">{label}</p>
+        <p className="mt-1 truncate text-2xl font-black tracking-[-0.04em] text-slate-950 text-money">{value}</p>
+        {sub && <p className="mt-1 text-[11px] font-medium text-slate-400">{sub}</p>}
       </div>
     </div>
   )
@@ -71,33 +72,36 @@ export default function Dashboard() {
   const hostelImg = apiAssetUrl(stats?.hostel_image)
 
   return (
-    <div className="space-y-5 max-w-5xl mx-auto">
+    <div className="page-shell">
 
       {/* ─── HOSTEL BANNER ─── */}
-      <div className="card overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-4 py-5 sm:px-6 flex flex-col sm:flex-row sm:items-center gap-4">
+      <div className="relative overflow-hidden rounded-[26px] bg-slate-950 shadow-[0_24px_55px_-30px_rgba(15,23,42,0.75)]">
+        <div className="pointer-events-none absolute -right-10 -top-24 h-64 w-64 rounded-full bg-violet-500/35 blur-3xl"/>
+        <div className="pointer-events-none absolute bottom-0 left-1/3 h-32 w-64 rounded-full bg-cyan-500/15 blur-3xl"/>
+        <div className="relative flex flex-col gap-4 px-5 py-6 sm:flex-row sm:items-center sm:px-7 sm:py-7">
           {hostelImg
-            ? <img src={hostelImg} alt="Hostel" className="w-14 h-14 rounded-xl object-cover ring-2 ring-white/30 flex-shrink-0"/>
-            : <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                <Building2 size={24} className="text-white/60"/>
+            ? <img src={hostelImg} alt="Hostel" className="h-16 w-16 flex-shrink-0 rounded-2xl object-cover ring-2 ring-white/20"/>
+            : <div className="grid h-16 w-16 flex-shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500/30 to-violet-500/20 text-indigo-200 ring-1 ring-inset ring-white/10">
+                <Building2 size={25}/>
               </div>
           }
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold text-white truncate">{stats?.hostel_name || 'Your Hostel'}</h1>
+            <div className="mb-1.5 flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]"/><p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-emerald-300">Property command center</p></div>
+            <h1 className="truncate text-2xl font-black tracking-[-0.04em] text-white">{stats?.hostel_name || 'Your Property'}</h1>
             {stats?.hostel_address
-              ? <p className="text-blue-200 text-sm mt-0.5 flex items-center gap-1 truncate"><MapPin size={12}/>{stats.hostel_address}</p>
-              : <p className="text-blue-300 text-xs mt-0.5">No address set — click Edit Info</p>
+              ? <p className="mt-1.5 flex items-center gap-1.5 truncate text-sm text-slate-400"><MapPin size={13}/>{stats.hostel_address}</p>
+              : <p className="mt-1.5 text-xs text-slate-500">Add your property address from Edit Info</p>
             }
           </div>
           <button onClick={() => setShowEditHostel(true)}
-            className="w-full sm:w-auto flex-shrink-0 flex items-center justify-center gap-1.5 text-xs border border-white/30 text-white/80 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors">
-            <Pencil size={12}/> Edit Info
+            className="flex min-h-11 w-full flex-shrink-0 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 text-xs font-bold text-white backdrop-blur transition-colors hover:bg-white/15 sm:w-auto">
+            <Pencil size={14}/> Edit property
           </button>
         </div>
       </div>
 
       {/* ─── KPIs ─── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard icon={Users}       label="Active Tenants"  value={stats?.total_tenants ?? '—'}  iconBg="bg-blue-50"    iconColor="text-blue-600"/>
         <KpiCard icon={BedDouble}   label="Vacant Beds"     value={stats?.vacant_beds ?? '—'}    iconBg="bg-emerald-50" iconColor="text-emerald-600"/>
         <KpiCard icon={IndianRupee} label="Collected (Month)" value={stats ? `₹${fmt(stats.total_collection_this_month)}` : '—'} sub="This month" iconBg="bg-violet-50" iconColor="text-violet-600"/>
