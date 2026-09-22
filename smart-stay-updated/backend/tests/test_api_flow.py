@@ -104,6 +104,7 @@ class PaymentApiFlowTests(unittest.IsolatedAsyncioTestCase):
         request = response.json()
         self.assertEqual(request["amount"], 6100.0)
         self.assertTrue(request["upi_configured"])
+        self.assertEqual(request["public_url"], f"http://localhost:5173/pay/{request['public_token']}")
         public_token = request["public_token"]
         request_id = request["request_id"]
 
@@ -142,6 +143,36 @@ class PaymentApiFlowTests(unittest.IsolatedAsyncioTestCase):
             destination = Path(output_path)
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(receipt.content)
+
+    async def test_payment_links_accept_frontend_url_fallback(self):
+        from app.routers.payments import _public_origin
+
+        with patch.dict(os.environ, {"FRONTEND_URL": "https://smart-stay.example"}, clear=False):
+            with patch.dict(os.environ, {"FRONTEND_PUBLIC_URL": ""}, clear=False):
+                self.assertEqual(_public_origin(), "https://smart-stay.example")
+
+    async def test_reset_password_with_missing_expiry_returns_error(self):
+        from app import models
+        from app.database import get_db
+
+        session = next(self.app.dependency_overrides[get_db]())
+        try:
+            hostel = models.Hostel(
+                name="Reset Stay", owner_name="Owner", email="reset@example.com",
+                password_hash="old", reset_token="missing-expiry-token",
+                reset_token_expiry=None,
+            )
+            session.add(hostel)
+            session.commit()
+        finally:
+            session.close()
+
+        response = await self.client.post("/auth/reset-password", json={
+            "token": "missing-expiry-token",
+            "new_password": "NewStrongPassword123!",
+        })
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertIn("expired", response.json()["detail"].lower())
 
 
 if __name__ == "__main__":

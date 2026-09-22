@@ -19,12 +19,55 @@ def _ensure_runtime_schema():
     """Small backwards-compatible migration for existing local databases."""
     additions = {
         "hostels": {
+            "address": "VARCHAR(500)",
+            "image_url": "VARCHAR(500)",
             "upi_id": "VARCHAR(150)",
             "payment_due_day": "INTEGER DEFAULT 5",
+            "reset_token": "VARCHAR(255)",
+            "reset_token_expiry": "TIMESTAMP",
+        },
+        "rooms": {
+            "occupied_beds": "INTEGER DEFAULT 0",
+        },
+        "tenants": {
+            "vacated_date": "DATE",
+            "photo_url": "VARCHAR(500)",
+            "aadhaar_pdf_url": "VARCHAR(500)",
+        },
+        "payments": {
+            "electricity_amount": "FLOAT DEFAULT 0",
+            "additional_amount": "FLOAT DEFAULT 0",
+            "arrears": "FLOAT DEFAULT 0",
+            "payment_date": "TIMESTAMP",
+            "transaction_id": "VARCHAR(100)",
+            "is_advance": "BOOLEAN DEFAULT FALSE",
+            "created_at": "TIMESTAMP",
         },
         "payment_transactions": {
+            "payment_id": "INTEGER",
+            "transaction_id": "VARCHAR(100)",
+            "note": "VARCHAR(255)",
             "status": "VARCHAR(20) NOT NULL DEFAULT 'RECEIVED'",
             "source": "VARCHAR(20) NOT NULL DEFAULT 'MANUAL'",
+            "paid_at": "TIMESTAMP",
+        },
+        "payment_requests": {
+            "payment_id": "INTEGER",
+            "public_token": "VARCHAR(80)",
+            "requested_amount": "FLOAT DEFAULT 0",
+            "status": "VARCHAR(20) DEFAULT 'PENDING'",
+            "payer_reference": "VARCHAR(100)",
+            "failure_reason": "VARCHAR(255)",
+            "created_at": "TIMESTAMP",
+            "updated_at": "TIMESTAMP",
+            "verified_at": "TIMESTAMP",
+        },
+        "electricity_bills": {
+            "per_tenant": "FLOAT DEFAULT 0",
+        },
+        "additional_charges": {
+            "room_number": "VARCHAR(20)",
+            "per_tenant": "FLOAT DEFAULT 0",
         },
     }
     with engine.begin() as connection:
@@ -39,13 +82,16 @@ def _ensure_runtime_schema():
                     connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {sql_type}"))
 
 
-_ensure_runtime_schema()
 Base.metadata.create_all(bind=engine)
-with engine.begin() as connection:
-    connection.execute(text(
-        "CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_tenant_month_idx "
-        "ON payments (hostel_id, tenant_id, month_year)"
-    ))
+_ensure_runtime_schema()
+try:
+    with engine.begin() as connection:
+        connection.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_tenant_month_idx "
+            "ON payments (hostel_id, tenant_id, month_year)"
+        ))
+except Exception as exc:
+    print(f"[database] Payment uniqueness index skipped or failed: {exc}")
 
 for d in ["uploads", "uploads/photos", "uploads/aadhaar"]:
     os.makedirs(d, exist_ok=True)

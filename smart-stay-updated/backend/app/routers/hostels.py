@@ -116,7 +116,7 @@ def reset_password(payload: schemas.ResetPasswordRequest, db: Session = Depends(
     if not hostel:
         raise HTTPException(status_code=400, detail="Invalid reset token.")
 
-    if hostel.reset_token_expiry < datetime.utcnow():
+    if not hostel.reset_token_expiry or hostel.reset_token_expiry < datetime.utcnow():
         raise HTTPException(status_code=400, detail="Reset token has expired.")
 
     hostel.password_hash     = hash_password(payload.new_password)

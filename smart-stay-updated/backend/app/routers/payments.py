@@ -136,7 +136,11 @@ def _record_received(
 
 
 def _public_origin() -> str:
-    return os.getenv("FRONTEND_PUBLIC_URL", "http://localhost:5173").rstrip("/")
+    return (
+        os.getenv("FRONTEND_PUBLIC_URL")
+        or os.getenv("FRONTEND_URL")
+        or "http://localhost:5173"
+    ).rstrip("/")
 
 
 def _request_payload(request: models.PaymentRequest) -> dict:
