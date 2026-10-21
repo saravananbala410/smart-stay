@@ -18,7 +18,8 @@ export function getServerUrl() {
 }
 
 export function setServerUrl(url) {
-  const value = clean(url)
+  let value = clean(url).replace(/\s+/g, '')
+  if (value && !/^[a-z]+:\/\//i.test(value)) value = `http://${value}`
   if (value && !/^https?:\/\//i.test(value)) throw new Error('Server URL must start with http:// or https://')
   try {
     if (value) localStorage.setItem(SERVER_KEY, value)

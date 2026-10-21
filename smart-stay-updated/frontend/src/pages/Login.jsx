@@ -53,7 +53,7 @@ export default function Login() {
       {showServer ? (
         <form onSubmit={saveServer} className="mb-6 space-y-3 rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4">
           <label className="label">Server address</label>
-          <div className="relative"><Server size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"/><input type="url" required inputMode="url" autoCapitalize="none" className="input pl-10" placeholder="http://192.168.1.10:8000" value={server} onChange={event => setServer(event.target.value)}/></div>
+          <div className="relative"><Server size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"/><input type="text" required inputMode="url" autoCorrect="off" spellCheck={false} autoCapitalize="none" className="input pl-10" placeholder="http://192.168.1.10:8000" value={server} onChange={event => setServer(event.target.value)}/></div>
           <p className="text-[11px] text-slate-500">Backend URL — your computer's WiFi IP with port 8000, or your hosted server.</p>
           <button type="submit" disabled={checking} className="btn-primary w-full">{checking ? 'Checking…' : 'Save & connect'}</button>
         </form>
