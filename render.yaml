@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: smart-stay-api
+    runtime: python
+    rootDir: smart-stay-updated/backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        value: https://smart-stay-topaz.vercel.app
+      - key: ALLOWED_ORIGINS
+        value: https://smart-stay-topaz.vercel.app
