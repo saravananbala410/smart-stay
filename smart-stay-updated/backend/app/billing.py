@@ -88,7 +88,7 @@ def charge_breakdown(tenant: models.Tenant, month_year: str, db: Session, hostel
             continue
         eligible_ids = [
             t.tenant_id for t in hostel_tenants
-            if tenant_is_billable(t, month_year)
+            if t.room and tenant_is_billable(t, month_year)
             and (charge.room_number is None or (t.room and t.room.room_number == charge.room_number))
         ]
         additional += allocated_share(charge.total_amount, eligible_ids, tenant.tenant_id)
@@ -112,10 +112,24 @@ def signed_balance_before(db: Session, hostel_id: int, tenant_id: int, month_yea
     return money(billed - paid)
 
 
-def _snapshot_with_opening(payment: models.Payment, opening: float) -> dict:
+def _snapshot_with_opening(payment: models.Payment, opening: float, has_later: bool = False) -> dict:
     current = money(payment.due_amount + payment.electricity_amount + payment.additional_amount)
     payable = money(current + opening)
     remaining = money(payable - payment.amount_paid)
+    if has_later and remaining > 0:
+        # The unpaid amount is already included as "previous balance" in the
+        # next month's bill. Reporting it here too would double count it.
+        return {
+            "opening_balance": money(max(0, opening)),
+            "opening_credit": money(max(0, -opening)),
+            "current_charges": current,
+            "payable": money(max(0, payable)),
+            "amount_paid": money(payment.amount_paid),
+            "balance": 0.0,
+            "credit": 0.0,
+            "carried_forward": remaining,
+            "status": "CARRIED",
+        }
     return {
         "opening_balance": money(max(0, opening)),
         "opening_credit": money(max(0, -opening)),
@@ -124,6 +138,7 @@ def _snapshot_with_opening(payment: models.Payment, opening: float) -> dict:
         "amount_paid": money(payment.amount_paid),
         "balance": money(max(0, remaining)),
         "credit": money(max(0, -remaining)),
+        "carried_forward": 0.0,
         "status": "PAID" if remaining <= 0 else ("PARTIAL" if payment.amount_paid > 0 else "DUE"),
     }
 
@@ -132,7 +147,12 @@ def payment_snapshot(db: Session, payment: models.Payment) -> dict:
     opening = signed_balance_before(
         db, payment.hostel_id, payment.tenant_id, payment.month_year
     )
-    return _snapshot_with_opening(payment, opening)
+    has_later = db.query(models.Payment.payment_id).filter(
+        models.Payment.hostel_id == payment.hostel_id,
+        models.Payment.tenant_id == payment.tenant_id,
+        models.Payment.month_year > payment.month_year,
+    ).first() is not None
+    return _snapshot_with_opening(payment, opening, has_later)
 
 
 def payment_snapshots(db: Session, payments: list[models.Payment]) -> dict[int, dict]:
@@ -150,8 +170,10 @@ def payment_snapshots(db: Session, payments: list[models.Payment]) -> dict[int, 
     ).all()
     running = {}
     opening_by_key = {}
+    latest_month = {}
     for row in all_rows:
         key = (row.hostel_id, row.tenant_id)
+        latest_month[key] = max(latest_month.get(key, row.month_year), row.month_year)
         opening_by_key[(row.hostel_id, row.tenant_id, row.month_year)] = money(running.get(key, 0))
         running[key] = money(
             running.get(key, 0)
@@ -162,6 +184,7 @@ def payment_snapshots(db: Session, payments: list[models.Payment]) -> dict[int, 
         payment.payment_id: _snapshot_with_opening(
             payment,
             opening_by_key.get((payment.hostel_id, payment.tenant_id, payment.month_year), 0),
+            payment.month_year < latest_month.get((payment.hostel_id, payment.tenant_id), payment.month_year),
         )
         for payment in payments
     }

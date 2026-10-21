@@ -65,7 +65,9 @@ def _ensure_ledger(
         ledger.due_amount = breakdown["rent"]
         ledger.electricity_amount = breakdown["electricity"]
         ledger.additional_amount = breakdown["additional"]
-    elif refresh_charges and not ledger.amount_paid:
+    elif refresh_charges:
+        # Charges are independent of payments, so refresh them even after a
+        # partial payment (e.g. electricity added after the tenant paid rent).
         breakdown = charge_breakdown(tenant, month_year, db, hostel_id)
         ledger.due_amount = breakdown["rent"]
         ledger.electricity_amount = breakdown["electricity"]
@@ -95,6 +97,7 @@ def _serialize_payment(db: Session, payment: models.Payment, snapshot: Optional[
         "amount_paid": snapshot["amount_paid"],
         "balance": snapshot["balance"],
         "credit": snapshot["credit"],
+        "carried_forward": snapshot.get("carried_forward", 0.0),
         "status": snapshot["status"],
         "due_date": due_date,
         "is_overdue": snapshot["balance"] > 0 and due_date < date.today(),
@@ -179,6 +182,8 @@ def _create_or_reuse_request(
 ) -> models.PaymentRequest:
     ledger = _ensure_ledger(db, hostel_id, tenant, month_year)
     snapshot = payment_snapshot(db, ledger)
+    if snapshot["status"] == "CARRIED":
+        raise HTTPException(status_code=409, detail="This balance moved to the latest month's bill. Collect it there.")
     amount = money(requested_amount if requested_amount is not None else snapshot["balance"])
     if amount <= 0:
         raise HTTPException(status_code=409, detail="This bill is already fully paid")

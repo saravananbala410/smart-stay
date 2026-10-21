@@ -1,0 +1,12 @@
+{
+  "appId": "com.smartstay.app",
+  "appName": "Smart Stay",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

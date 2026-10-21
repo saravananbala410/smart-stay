@@ -91,16 +91,23 @@ def update_rent_config(
 ):
     hid = current_hostel.hostel_id
 
-    # Save or update rent config
+    if sharing_type not in {s.value for s in models.SharingType}:
+        raise HTTPException(status_code=422, detail="Sharing type must be 2, 3, 4 or 6")
+    if payload.rent_amount <= 0:
+        raise HTTPException(status_code=422, detail="Rent must be greater than zero")
+
+    # Keep rent history: one row per effective date, so old months keep old rent.
     config = db.query(models.RentConfiguration).filter(
         models.RentConfiguration.hostel_id    == hid,
-        models.RentConfiguration.sharing_type == sharing_type
+        models.RentConfiguration.sharing_type == sharing_type,
+        models.RentConfiguration.effective_date == payload.effective_date
     ).first()
 
     if config:
         config.rent_amount   = payload.rent_amount
-        config.effective_date= payload.effective_date
     else:
+        # Room base_rent is left untouched: it stays the rent for months
+        # before the first effective date.
         config = models.RentConfiguration(
             hostel_id    = hid,
             sharing_type = sharing_type,
@@ -108,12 +115,6 @@ def update_rent_config(
             effective_date= payload.effective_date
         )
         db.add(config)
-
-    # Also update base_rent on all matching rooms
-    db.query(models.Room).filter(
-        models.Room.hostel_id    == hid,
-        models.Room.sharing_type == sharing_type
-    ).update({"base_rent": payload.rent_amount})
 
     db.commit()
     return {

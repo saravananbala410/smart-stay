@@ -45,8 +45,11 @@ def get_dashboard_stats(
         for r in rooms if r.occupied_beds < r.total_beds
     ]
 
-    month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    next_month = month_start + relativedelta(months=1)
+    # paid_at is stored in UTC; convert local month boundaries to UTC.
+    local_now = datetime.now().astimezone()
+    local_start = local_now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    month_start = (local_start - local_start.utcoffset()).replace(tzinfo=None)
+    next_month = ((local_start + relativedelta(months=1)) - local_start.utcoffset()).replace(tzinfo=None)
     total_collection = db.query(func.sum(models.PaymentTransaction.amount)).filter(
         models.PaymentTransaction.hostel_id == hid,
         models.PaymentTransaction.status == "RECEIVED",

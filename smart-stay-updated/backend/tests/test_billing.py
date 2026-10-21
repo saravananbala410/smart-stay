@@ -11,6 +11,7 @@ from app.billing import (
     allocated_share,
     monthly_rent,
     payment_snapshot,
+    payment_snapshots,
     tenant_account_totals,
     tenant_is_billable,
 )
@@ -108,6 +109,28 @@ class BillingMathTests(unittest.TestCase):
         self.assertEqual(snapshot["payable"], 5500)
         totals = tenant_account_totals(self.db, self.hostel.hostel_id, tenant.tenant_id)
         self.assertEqual(totals["outstanding"], 5500)
+
+    def test_unpaid_month_is_not_double_counted_after_carry_forward(self):
+        tenant = self.tenants[0]
+        january = models.Payment(
+            hostel_id=self.hostel.hostel_id, tenant_id=tenant.tenant_id,
+            month_year="2026-01", due_amount=6000, amount_paid=0,
+        )
+        february = models.Payment(
+            hostel_id=self.hostel.hostel_id, tenant_id=tenant.tenant_id,
+            month_year="2026-02", due_amount=6000, amount_paid=0,
+        )
+        self.db.add_all([january, february])
+        self.db.commit()
+        snaps = payment_snapshots(self.db, [january, february])
+        self.assertEqual(snaps[january.payment_id]["status"], "CARRIED")
+        self.assertEqual(snaps[january.payment_id]["balance"], 0)
+        self.assertEqual(snaps[january.payment_id]["carried_forward"], 6000)
+        self.assertEqual(snaps[february.payment_id]["balance"], 12000)
+        total = sum(s["balance"] for s in snaps.values())
+        totals = tenant_account_totals(self.db, self.hostel.hostel_id, tenant.tenant_id)
+        self.assertEqual(total, totals["outstanding"])
+        self.assertEqual(payment_snapshot(self.db, january)["status"], "CARRIED")
 
     def test_tenant_is_not_billed_before_joining_month(self):
         tenant = self.tenants[0]

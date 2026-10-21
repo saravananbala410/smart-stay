@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from 'react'
 import { Plus, X, Zap, Droplets, Receipt, FileText, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, Clock, QrCode, Send, ShieldCheck, Download, Copy, ExternalLink, CircleX } from 'lucide-react'
-import api, { API_ORIGIN, apiAssetUrl } from '../api/axios'
+import api, { API_ORIGIN, apiAssetUrl, openExternal } from '../api/axios'
 import toast from 'react-hot-toast'
 
 function Modal({ title, onClose, children }) {
@@ -19,7 +19,8 @@ function Modal({ title, onClose, children }) {
 
 const fmt = value => Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-function BalancePill({ balance, credit = 0 }) {
+function BalancePill({ balance, credit = 0, carried = 0 }) {
+  if (carried > 0) return <span className="badge-slate"><Clock size={11}/> ₹{fmt(carried)} moved to next month</span>
   if (credit > 0) return <span className="badge-blue"><CheckCircle2 size={11}/> ₹{fmt(credit)} credit</span>
   return balance === 0
     ? <span className="badge-green"><CheckCircle2 size={11}/> Paid</span>
@@ -134,14 +135,14 @@ export default function Payments() {
   const openInvoice = async (p) => {
     try {
       const { data } = await api.get(`/invoice/token/${p.tenant_id}?month_year=${p.month_year}`)
-      window.open(`${API_ORIGIN}/api/invoice/view/${data.hostel_id}/${p.tenant_id}/${p.month_year}?token=${data.token}&expires=${data.expires}`, '_blank', 'noopener,noreferrer')
+      openExternal(`${API_ORIGIN}/api/invoice/view/${data.hostel_id}/${p.tenant_id}/${p.month_year}?token=${data.token}&expires=${data.expires}`)
     } catch { toast.error('Could not open invoice') }
   }
 
   const downloadReceipt = async p => {
     try {
       const { data } = await api.get(`/invoice/token/${p.tenant_id}?month_year=${p.month_year}`)
-      window.open(`${API_ORIGIN}/api/invoice/download/${data.hostel_id}/${p.tenant_id}/${p.month_year}?token=${data.token}&expires=${data.expires}`, '_blank', 'noopener,noreferrer')
+      openExternal(`${API_ORIGIN}/api/invoice/download/${data.hostel_id}/${p.tenant_id}/${p.month_year}?token=${data.token}&expires=${data.expires}`)
     } catch { toast.error('Could not download receipt') }
   }
 
@@ -242,7 +243,7 @@ export default function Payments() {
                       <p className="truncate font-bold text-slate-900">{p.tenant_name}</p>
                       <p className="mt-0.5 text-xs text-slate-400">Room {p.room_number || '—'} · Due {new Date(`${p.due_date}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}{p.is_overdue ? ' · Overdue' : ''}</p>
                     </div>
-                    <BalancePill balance={p.balance} credit={p.credit}/>
+                    <BalancePill balance={p.balance} credit={p.credit} carried={p.carried_forward}/>
                   </div>
                   <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-[#f7f7f3] p-3 text-center">
                     <div><p className="text-[10px] font-bold uppercase text-slate-400">Payable</p><p className="mt-1 text-sm font-bold text-money">₹{fmt(p.payable)}</p></div>
@@ -291,7 +292,7 @@ export default function Payments() {
                       </td>
                       <td className="text-right text-money font-semibold text-slate-900">₹{fmt(p.payable)}</td>
                       <td className="text-right text-money text-emerald-600 font-semibold">₹{p.amount_paid.toLocaleString('en-IN')}</td>
-                      <td><BalancePill balance={p.balance} credit={p.credit}/></td>
+                      <td><BalancePill balance={p.balance} credit={p.credit} carried={p.carried_forward}/></td>
                       <td>
                         <div className="flex items-center gap-1">
                           <button onClick={e => { e.stopPropagation(); openInvoice(p) }}

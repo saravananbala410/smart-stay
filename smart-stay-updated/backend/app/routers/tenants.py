@@ -250,7 +250,9 @@ def update_tenant(
         t.vacated_date = date.today()
     elif payload.status == "Active" and t.status == "Vacated":
         # Re-activate tenant
-        if t.room and t.room.occupied_beds < t.room.total_beds:
+        if t.room:
+            if t.room.occupied_beds >= t.room.total_beds:
+                raise HTTPException(status_code=409, detail="Room is full. Free a bed before re-activating this tenant.")
             t.room.occupied_beds += 1
         t.vacated_date = None
 

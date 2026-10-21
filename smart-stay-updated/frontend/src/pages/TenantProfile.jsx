@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Phone, Calendar, Home, Receipt, Clock, RefreshCw, UserX, ShieldCheck, CreditCard, AlertCircle, CheckCircle2 } from 'lucide-react'
-import api, { API_ORIGIN, apiAssetUrl } from '../api/axios'
+import api, { API_ORIGIN, apiAssetUrl, openExternal } from '../api/axios'
 import toast from 'react-hot-toast'
 
 function fmt(n) { return Number(n || 0).toLocaleString('en-IN') }
@@ -41,7 +41,7 @@ export default function TenantProfile() {
   const openInvoice = async (monthYear) => {
     try {
       const { data } = await api.get(`/invoice/token/${id}?month_year=${monthYear}`)
-      window.open(`${API_ORIGIN}/api/invoice/view/${data.hostel_id}/${id}/${monthYear}?token=${data.token}&expires=${data.expires}`, '_blank', 'noopener,noreferrer')
+      openExternal(`${API_ORIGIN}/api/invoice/view/${data.hostel_id}/${id}/${monthYear}?token=${data.token}&expires=${data.expires}`)
     } catch { toast.error('Could not open invoice') }
   }
 
@@ -199,7 +199,9 @@ export default function TenantProfile() {
                         </td>
                         <td className="text-right text-money font-bold text-emerald-600">₹{fmt(p.amount_paid)}</td>
                         <td>
-                          {p.balance === 0
+                          {p.payment_status === 'CARRIED'
+                            ? <span className="badge-slate"><Clock size={11}/> Moved to next month</span>
+                            : p.balance === 0
                             ? <span className="badge-green"><CheckCircle2 size={11}/> Cleared</span>
                             : <span className="badge-red"><AlertCircle size={11}/> ₹{fmt(p.balance)} due</span>}
                         </td>

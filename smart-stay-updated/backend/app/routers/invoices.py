@@ -13,7 +13,7 @@ import hmac, hashlib, os, time
 from app.database import get_db
 from app import models
 from app.auth import get_current_hostel
-from app.billing import allocated_share, month_bounds, payment_snapshot, tenant_is_billable
+from app.billing import allocated_share, money, month_bounds, payment_snapshot, tenant_is_billable
 
 router = APIRouter()
 
@@ -97,7 +97,8 @@ def generate_invoice(
     opening_credit = snapshot["opening_credit"]
     total_due = snapshot["payable"]
     paid      = snapshot["amount_paid"]
-    balance   = snapshot["balance"]
+    # Receipts show the month's true remainder, even if it moved to the next bill.
+    balance   = money(snapshot["balance"] + snapshot.get("carried_forward", 0))
 
     add_charges = db.query(models.AdditionalCharge).filter(
         models.AdditionalCharge.hostel_id  == hostel_id,
@@ -111,7 +112,7 @@ def generate_invoice(
             continue
         eligible_ids = [
             t.tenant_id for t in hostel_tenants
-            if tenant_is_billable(t, month_year)
+            if t.room and tenant_is_billable(t, month_year)
             and (ac.room_number is None or (t.room and t.room.room_number == ac.room_number))
         ]
         tenant_share = allocated_share(ac.total_amount, eligible_ids, tenant_id)
@@ -310,7 +311,7 @@ def download_receipt_pdf(
         ("Less: opening credit", snapshot["opening_credit"]),
         ("Total payable", snapshot["payable"]),
         ("Amount received", snapshot["amount_paid"]),
-        ("Remaining", snapshot["balance"]),
+        ("Remaining", money(snapshot["balance"] + snapshot.get("carried_forward", 0))),
     ]
     pdf.setFont("Helvetica-Bold", 11)
     pdf.drawString(42, y, "Payment calculation")

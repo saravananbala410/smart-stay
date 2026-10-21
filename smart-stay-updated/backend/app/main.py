@@ -106,9 +106,18 @@ allowed_origins = [item.strip() for item in os.getenv(
     "ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
 ).split(",") if item.strip()]
 
+# Android app (Capacitor) origins are always allowed, plus private-LAN dev hosts
+# so a phone on the same WiFi can reach the API.
+allowed_origins += ["http://localhost", "https://localhost", "capacitor://localhost"]
+lan_origin_regex = os.getenv(
+    "ALLOWED_ORIGIN_REGEX",
+    r"^https?://(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$",
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=lan_origin_regex or None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

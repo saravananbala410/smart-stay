@@ -1,4 +1,5 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { clearAuth } from '../api/axios'
 import {
   LayoutDashboard, BedDouble, Users, WalletCards, BarChart3,
   LogOut, Building2, Activity, Sparkles, ShieldCheck,
@@ -35,7 +36,7 @@ function BrandMark({ compact = false }) {
 function DesktopSidebar() {
   const navigate = useNavigate()
   const hostelName = localStorage.getItem('hostel_name') || 'My Property'
-  const logout = () => { localStorage.clear(); navigate('/login') }
+  const logout = () => { clearAuth(); navigate('/login') }
 
   return (
     <aside className="relative hidden w-[272px] flex-shrink-0 flex-col overflow-hidden border-r border-white/5 bg-slate-950 text-white md:flex">

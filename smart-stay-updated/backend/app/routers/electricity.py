@@ -161,7 +161,7 @@ def add_additional_charge(
     else:
         # Hostel-wide
         hostel_tenants = db.query(models.Tenant).filter(models.Tenant.hostel_id == hid).all()
-        active_tenants = [t for t in hostel_tenants if tenant_is_billable(t, payload.month_year)]
+        active_tenants = [t for t in hostel_tenants if t.room and tenant_is_billable(t, payload.month_year)]
 
     if not active_tenants:
         raise HTTPException(status_code=400, detail="No active tenants to split across")
@@ -231,7 +231,7 @@ def list_additional_charges(
             "month_year" : c.month_year,
             "scope"      : f"Room {c.room_number}" if c.room_number else "Hostel-wide"
             ,"tenant_count": len([
-                t for t in tenants if tenant_is_billable(t, c.month_year)
+                t for t in tenants if t.room and tenant_is_billable(t, c.month_year)
                 and (c.room_number is None or (t.room and t.room.room_number == c.room_number))
             ])
         }
